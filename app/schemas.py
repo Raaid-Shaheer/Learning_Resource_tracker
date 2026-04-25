@@ -1,31 +1,22 @@
 from pydantic import BaseModel
+from app.models import Department, ResourceType
 
 class ResourceCreate(BaseModel):
-  title: str
-  link: str
-  category: str
-  description: str | None = None
+    title: str
+    link: str
+    department: Department         
+    resource_type: ResourceType     
+    description: str | None = None
 
 class Resource(ResourceCreate):
-  id: int
+    id: int
 
-  class Config:
-    from_attributes = True
-
-class Resource(BaseModel):
-  id: int
-  title: str
-  link: str
-  category: str
-  description: str
-
-  class config:
-    orm_mode = True
+    class Config:
+        from_attributes = True
 
 class ResourceUpdate(BaseModel):
-  title: str | None = None
-  link: str | None = None
-  category: str | None = None
-  description: str | None = None
-
-  
+    title: str | None = None
+    link: str | None = None
+    department: Department | None = None
+    resource_type: ResourceType | None = None
+    description: str | None = None

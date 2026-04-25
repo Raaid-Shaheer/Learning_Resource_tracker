@@ -1,0 +1,585 @@
+// ============================================================
+// CONSTANTS
+// ============================================================
+const API_URL = "http://127.0.0.1:8000";
+
+// ============================================================
+// STATE
+// ============================================================
+let editingId   = null;
+let deletingId  = null;
+let currentPage = "home";
+let currentDept = "CS";
+let currentType = null;
+
+// ============================================================
+// ELEMENT REFS
+// ============================================================
+const resourceModal   = document.getElementById("resource-modal");
+const confirmModal    = document.getElementById("confirm-modal");
+const modalTitle      = document.getElementById("modal-title");
+const inputTitle      = document.getElementById("input-title");
+const inputLink       = document.getElementById("input-link");
+const inputDesc       = document.getElementById("input-description");
+const inputDept       = document.getElementById("input-department");
+const inputType       = document.getElementById("input-type");
+const btnSave         = document.getElementById("btn-save");
+const btnConfirmDel   = document.getElementById("btn-confirm-delete");
+const btnConfirmCan   = document.getElementById("btn-confirm-cancel");
+const searchInput     = document.getElementById("search-input");
+const filterDept      = document.getElementById("filter-department");
+const filterType      = document.getElementById("filter-type");
+const globalSearch    = document.getElementById("global-search");
+
+// ============================================================
+// HELPERS — THUMBNAIL
+// ============================================================
+
+// Extract YouTube video ID from various URL formats
+function getYouTubeId(url) {
+    if (!url) return null;
+    const patterns = [
+        /youtube\.com\/watch\?v=([^&]+)/,
+        /youtu\.be\/([^?]+)/,
+        /youtube\.com\/embed\/([^?]+)/,
+        /youtube\.com\/shorts\/([^?]+)/,
+    ];
+    for (const p of patterns) {
+        const m = url.match(p);
+        if (m) return m[1];
+    }
+    return null;
+}
+
+// Build the thumbnail element for a resource
+function buildThumbnail(resource) {
+    const type = resource.resource_type;
+    const ytId  = (type === "Video" || type === "Playlist") ? getYouTubeId(resource.link) : null;
+
+    if (ytId) {
+        const img = document.createElement("img");
+        img.className = "res-thumb";
+        img.alt = resource.title;
+        img.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+        // Fallback if thumbnail fails to load
+        img.onerror = () => {
+            img.replaceWith(iconPlaceholder(type));
+        };
+        return img;
+    }
+    return iconPlaceholder(type);
+}
+
+function iconPlaceholder(type) {
+    const div = document.createElement("div");
+    const cls = typeClass(type);
+    div.className = `res-thumb-placeholder type-${cls}`;
+    div.textContent = typeEmoji(type);
+    return div;
+}
+
+// ============================================================
+// HELPERS — TYPE STYLING
+// ============================================================
+function typeClass(type) {
+    const map = { "Video": "yt", "Playlist": "pl", "Website": "web", "Github Repo": "gh" };
+    return map[type] || "web";
+}
+
+function typeEmoji(type) {
+    const map = { "Video": "▶", "Playlist": "☰", "Website": "◈", "Github Repo": "◎" };
+    return map[type] || "◈";
+}
+
+function typeBadgeClass(type) {
+    const map = { "Video": "badge-yt", "Playlist": "badge-pl", "Website": "badge-web", "Github Repo": "badge-gh" };
+    return map[type] || "badge-web";
+}
+
+function typeLabel(type) {
+    const map = { "Video": "YouTube Video", "Playlist": "YouTube Playlist", "Website": "Website", "Github Repo": "GitHub Repo" };
+    return map[type] || type;
+}
+
+function openBtnClass(type) {
+    const map = { "Video": "btn-open-yt", "Playlist": "btn-open-pl", "Website": "btn-open-web", "Github Repo": "btn-open-gh" };
+    return map[type] || "btn-open-web";
+}
+
+function deptLabel(dept) {
+    const map = { "CS": "Computer Science", "ECE": "Electronics", "Other": "Other Fun Stuff" }; // Domains
+    return map[dept] || dept;
+}
+
+// ============================================================
+// BUILD RESOURCE ITEM
+// ============================================================
+function buildResourceItem(resource) {
+    const item = document.createElement("div");
+    item.className = "resource-item";
+
+    // Thumbnail
+    item.appendChild(buildThumbnail(resource));
+
+    // Body
+    const body = document.createElement("div");
+    body.className = "res-body";
+    body.innerHTML = `
+        <div>
+            <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
+                ${typeLabel(resource.resource_type)}
+            </span>
+            <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.department)}</span>
+        </div>
+        <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
+        <p class="res-desc">${resource.description || "No description provided."}</p>
+    `;
+    item.appendChild(body);
+
+    // Actions
+    const actions = document.createElement("div");
+    actions.className = "res-actions";
+
+    const openBtn = document.createElement("a");
+    openBtn.href = resource.link;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener";
+    openBtn.className = `btn-open ${openBtnClass(resource.resource_type)}`;
+    openBtn.innerHTML = `<span class="material-symbols-outlined">open_in_new</span> Open`;
+
+    const editRow = document.createElement("div");
+    editRow.className = "res-edit-row";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn-icon btn-icon-edit";
+    editBtn.title = "Edit";
+    editBtn.innerHTML = `<span class="material-symbols-outlined">edit</span>`;
+    editBtn.onclick = () => openEditModal(resource.id);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn-icon btn-icon-del";
+    delBtn.title = "Delete";
+    delBtn.innerHTML = `<span class="material-symbols-outlined">delete</span>`;
+    delBtn.onclick = () => openDeleteConfirm(resource.id);
+
+    editRow.appendChild(editBtn);
+    editRow.appendChild(delBtn);
+    actions.appendChild(openBtn);
+    actions.appendChild(editRow);
+    item.appendChild(actions);
+
+    return item;
+}
+
+// ============================================================
+// NAVIGATION — the SPA router
+// ============================================================
+function navigate(page, param = null) {
+    // Hide all pages
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    // Remove all sidebar active states
+    document.querySelectorAll(".sidebar-link").forEach(l => l.classList.remove("active"));
+
+    currentPage = page;
+
+    if (page === "home") {
+        document.getElementById("page-home").classList.add("active");
+        document.getElementById("link-home").classList.add("active");
+        setBreadcrumb([{ label: "Home" }]);
+        loadHomeData();
+
+    } else if (page === "dept") {
+        currentDept = param || currentDept;
+        currentType = null;
+        document.getElementById("page-dept").classList.add("active");
+        document.getElementById("link-dept").classList.add("active");
+        setBreadcrumb([
+            { label: "Home", action: () => navigate("home") },
+            { label: deptLabel(currentDept) }
+        ]);
+        loadDeptPage(currentDept);
+
+    } else if (page === "resources") {
+        document.getElementById("page-resources").classList.add("active");
+        document.getElementById("link-resources").classList.add("active");
+        setBreadcrumb([
+            { label: "Home", action: () => navigate("home") },
+            { label: "All Resources" }
+        ]);
+        loadAllResources();
+    }
+}
+
+// ============================================================
+// BREADCRUMB
+// ============================================================
+function setBreadcrumb(items) {
+    const bc = document.getElementById("breadcrumb");
+    bc.innerHTML = "";
+    items.forEach((item, i) => {
+        const span = document.createElement("span");
+        span.className = "bc-item";
+        if (i < items.length - 1) {
+            span.innerHTML = `<span class="bc-link">${item.label}</span><span class="bc-sep">›</span>`;
+            span.querySelector(".bc-link").onclick = item.action || null;
+        } else {
+            span.innerHTML = `<span class="bc-current">${item.label}</span>`;
+        }
+        bc.appendChild(span);
+    });
+}
+
+// ============================================================
+// HOME PAGE DATA
+// ============================================================
+async function loadHomeData() {
+    try {
+        const response  = await fetch(`${API_URL}/resources`);
+        const resources = await response.json();
+
+        // ── Hero stat
+        document.getElementById("stat-total").textContent = resources.length;
+
+        // ── Domain card counts
+        const domainCounts = { CS: 0, ECE: 0, Other: 0 };
+        resources.forEach(r => { if (domainCounts[r.department] !== undefined) domainCounts[r.department]++; });
+        document.getElementById("count-CS").textContent    = `${domainCounts.CS} resources`;
+        document.getElementById("count-ECE").textContent   = `${domainCounts.ECE} resources`;
+        document.getElementById("count-Other").textContent = `${domainCounts.Other} resources`;
+
+        // ── Stat cards
+        document.getElementById("sc-total").textContent = resources.length;
+
+        // Most active domain
+        const topDomain = Object.entries(domainCounts).sort((a,b) => b[1]-a[1])[0];
+        const domainNames = { CS: "Computer Science", ECE: "Electronics", Other: "Other Fun Stuff" };
+        document.getElementById("sc-top-domain").textContent =
+            resources.length === 0 ? "—" : `${domainNames[topDomain[0]]}`;
+
+        // Videos + Playlists
+        const mediaCount = resources.filter(r => r.resource_type === "Video" || r.resource_type === "Playlist").length;
+        document.getElementById("sc-videos").textContent = mediaCount;
+
+        // Latest addition
+        const newest = resources.length > 0 ? resources[resources.length - 1] : null;
+        document.getElementById("sc-newest").textContent = newest ? newest.title : "None yet";
+
+        // ── Type breakdown bar
+        const typeCounts = { "Video": 0, "Playlist": 0, "Website": 0, "Github Repo": 0 };
+        resources.forEach(r => { if (typeCounts[r.resource_type] !== undefined) typeCounts[r.resource_type]++; });
+        const total = resources.length || 1;
+
+        const barConfig = [
+            { key: "Video",       cls: "bar-yt",  label: "Video",   dot: "#ef4444" },
+            { key: "Playlist",    cls: "bar-pl",  label: "Playlist",dot: "#d97706" },
+            { key: "Website",     cls: "bar-web", label: "Website", dot: "#2563eb" },
+            { key: "Github Repo", cls: "bar-gh",  label: "GitHub",  dot: "#1e293b" },
+        ];
+
+        const barsEl  = document.getElementById("breakdown-bars");
+        const legendEl = document.getElementById("breakdown-legend");
+        barsEl.innerHTML  = "";
+        legendEl.innerHTML = "";
+
+        barConfig.forEach(({ key, cls, label, dot }) => {
+            const pct = Math.round((typeCounts[key] / total) * 100);
+            if (pct > 0) {
+                const bar = document.createElement("div");
+                bar.className = `breakdown-bar ${cls}`;
+                bar.style.width = `${pct}%`;
+                bar.title = `${label}: ${typeCounts[key]}`;
+                barsEl.appendChild(bar);
+            }
+            const li = document.createElement("div");
+            li.className = "legend-item";
+            li.innerHTML = `<div class="legend-dot" style="background:${dot}"></div>${label} <strong>${typeCounts[key]}</strong>`;
+            legendEl.appendChild(li);
+        });
+
+    } catch (err) {
+        console.error("Failed to load home data:", err);
+    }
+}
+
+// ============================================================
+// DEPARTMENT PAGE
+// ============================================================
+async function loadDeptPage(dept) {
+    try {
+        const response  = await fetch(`${API_URL}/resources?department=${dept}`);
+        const resources = await response.json();
+
+        // Render the dept hero banner
+        const heroConfig = {
+            CS:    { label: "Computer Science", sub: "Algorithms, data structures, AI, and software engineering.", icon: "terminal",  cls: "dept-cs"    },
+            ECE:   { label: "Electronics",       sub: "Circuits, microcontrollers, and embedded systems.",          icon: "memory",    cls: "dept-ece"   },
+            Other: { label: "Other Fun Stuff",   sub: "Curiosity-driven learning beyond the syllabus.",            icon: "explore",   cls: "dept-other" },
+        };
+        const cfg = heroConfig[dept] || heroConfig.CS;
+        const hero = document.getElementById("dept-page-hero");
+        hero.className = `dept-page-hero ${cfg.cls}`;
+        hero.innerHTML = `
+            <div class="dept-icon ${`dept-icon-${dept.toLowerCase().replace(' ','-')}`}">
+                <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">${cfg.icon}</span>
+            </div>
+            <div>
+                <div class="dept-hero-title">${cfg.label}</div>
+                <div class="dept-hero-sub">${cfg.sub}</div>
+            </div>
+        `;
+
+        // Count per type
+        const types = ["Video", "Playlist", "Website", "Github Repo"];
+        const counts = {};
+        types.forEach(t => counts[t] = 0);
+        resources.forEach(r => { if (counts[r.resource_type] !== undefined) counts[r.resource_type]++; });
+
+        // Render category chips
+        const catGrid = document.getElementById("cat-grid");
+        catGrid.innerHTML = "";
+        const typeConfig = {
+            "Video":       { cls: "cat-yt",  emoji: "▶", label: "YouTube Videos"  },
+            "Playlist":    { cls: "cat-pl",  emoji: "☰", label: "Playlists"       },
+            "Website":     { cls: "cat-web", emoji: "◈", label: "Websites"        },
+            "Github Repo": { cls: "cat-gh",  emoji: "◎", label: "GitHub Repos"    },
+        };
+        types.forEach(type => {
+            const tc = typeConfig[type];
+            const chip = document.createElement("div");
+            chip.className = `cat-chip ${tc.cls}`;
+            chip.innerHTML = `
+                <div class="cat-stripe"></div>
+                <div class="cat-icon-wrap">${tc.emoji}</div>
+                <div class="cat-label">${tc.label}</div>
+                <div class="cat-count">${counts[type]} resource${counts[type] !== 1 ? 's' : ''}</div>
+            `;
+            chip.onclick = () => loadDeptTypeResources(dept, type, chip);
+            catGrid.appendChild(chip);
+        });
+
+        // Hide the resource section until a category is clicked
+        document.getElementById("dept-resources-section").style.display = "none";
+
+    } catch (err) {
+        console.error("Failed to load dept page:", err);
+    }
+}
+
+async function loadDeptTypeResources(dept, type, chipEl) {
+    // Toggle active chip
+    document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("active"));
+    chipEl.classList.add("active");
+    currentType = type;
+
+    // Update breadcrumb
+    setBreadcrumb([
+        { label: "Home",               action: () => navigate("home") },
+        { label: deptLabel(dept),      action: () => navigate("dept", dept) },
+        { label: typeLabel(type) }
+    ]);
+
+    try {
+        const response  = await fetch(`${API_URL}/resources?department=${dept}&resource_type=${encodeURIComponent(type)}`);
+        const resources = await response.json();
+
+        const section = document.getElementById("dept-resources-section");
+        const list    = document.getElementById("dept-resources-list");
+        const title   = document.getElementById("dept-resources-title");
+
+        section.style.display = "block";
+        title.textContent = `${typeLabel(type)} — ${deptLabel(dept)}`;
+        list.innerHTML = "";
+
+        if (resources.length === 0) {
+            list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${deptLabel(dept)} yet.</div>`;
+        } else {
+            resources.forEach(r => list.appendChild(buildResourceItem(r)));
+        }
+
+        // Scroll to the section
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    } catch (err) {
+        console.error("Failed to load dept type resources:", err);
+    }
+}
+
+// ============================================================
+// ALL RESOURCES PAGE
+// ============================================================
+async function loadAllResources() {
+    const params = new URLSearchParams();
+    const search = searchInput ? searchInput.value.trim() : "";
+    const dept   = filterDept  ? filterDept.value  : "";
+    const type   = filterType  ? filterType.value  : "";
+    if (search) params.append("title", search);
+    if (dept)   params.append("department", dept);
+    if (type)   params.append("resource_type", type);
+
+    try {
+        const response  = await fetch(`${API_URL}/resources?${params}`);
+        const resources = await response.json();
+        const container = document.getElementById("resources-container");
+        container.innerHTML = "";
+        if (resources.length === 0) {
+            container.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No resources found.</div>`;
+        } else {
+            resources.forEach(r => container.appendChild(buildResourceItem(r)));
+        }
+    } catch (err) {
+        console.error("Failed to load resources:", err);
+    }
+}
+
+// ============================================================
+// MODAL — ADD
+// ============================================================
+function openAddModal() {
+    editingId = null;
+    modalTitle.textContent = "Add Resource";
+    inputTitle.value = "";
+    inputLink.value  = "";
+    inputDesc.value  = "";
+    inputDept.value  = "CS";
+    inputType.value  = "Video";
+    resourceModal.classList.remove("hidden");
+}
+
+// ============================================================
+// MODAL — EDIT
+// ============================================================
+async function openEditModal(id) {
+    editingId = id;
+    modalTitle.textContent = "Edit Resource";
+    try {
+        const response = await fetch(`${API_URL}/resources/${id}`);
+        const resource = await response.json();
+        inputTitle.value = resource.title;
+        inputLink.value  = resource.link;
+        inputDesc.value  = resource.description || "";
+        inputDept.value  = resource.department;
+        inputType.value  = resource.resource_type;
+        resourceModal.classList.remove("hidden");
+    } catch (err) {
+        console.error("Failed to load resource for edit:", err);
+    }
+}
+
+function closeModal() {
+    resourceModal.classList.add("hidden");
+}
+
+// ============================================================
+// MODAL — DELETE
+// ============================================================
+function openDeleteConfirm(id) {
+    deletingId = id;
+    confirmModal.classList.remove("hidden");
+}
+
+function closeConfirmModal() {
+    deletingId = null;
+    confirmModal.classList.add("hidden");
+}
+
+// ============================================================
+// SAVE — create or update
+// ============================================================
+async function saveResource() {
+    const body = {
+        title:         inputTitle.value.trim(),
+        link:          inputLink.value.trim(),
+        description:   inputDesc.value.trim(),
+        department:    inputDept.value,
+        resource_type: inputType.value,
+    };
+
+    if (!body.title || !body.link) {
+        alert("Title and Link are required.");
+        return;
+    }
+
+    const method = editingId === null ? "POST" : "PUT";
+    const url    = editingId === null
+        ? `${API_URL}/resources/`
+        : `${API_URL}/resources/${editingId}`;
+
+    try {
+        await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        closeModal();
+        refreshCurrentPage();
+    } catch (err) {
+        console.error("Failed to save resource:", err);
+    }
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+async function deleteResource() {
+    try {
+        await fetch(`${API_URL}/resources/${deletingId}`, { method: "DELETE" });
+        closeConfirmModal();
+        refreshCurrentPage();
+    } catch (err) {
+        console.error("Failed to delete resource:", err);
+    }
+}
+
+// ============================================================
+// REFRESH — reload whichever page is active
+// ============================================================
+function refreshCurrentPage() {
+    if (currentPage === "home")       loadHomeData();
+    else if (currentPage === "dept")  loadDeptPage(currentDept);
+    else if (currentPage === "resources") loadAllResources();
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+btnSave.addEventListener("click", saveResource);
+btnConfirmDel.addEventListener("click", deleteResource);
+btnConfirmCan.addEventListener("click", closeConfirmModal);
+
+if (searchInput) {
+    searchInput.addEventListener("input", loadAllResources);
+}
+if (filterDept) {
+    filterDept.addEventListener("change", loadAllResources);
+}
+if (filterType) {
+    filterType.addEventListener("change", loadAllResources);
+}
+
+// Global search — navigates to all resources page with query pre-filled
+if (globalSearch) {
+    globalSearch.addEventListener("keydown", e => {
+        if (e.key === "Enter" && globalSearch.value.trim()) {
+            navigate("resources");
+            setTimeout(() => {
+                if (searchInput) {
+                    searchInput.value = globalSearch.value.trim();
+                    loadAllResources();
+                }
+            }, 50);
+        }
+    });
+}
+
+// Close modals on overlay click
+document.getElementById("resource-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeModal();
+});
+document.getElementById("confirm-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeConfirmModal();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+navigate("home");
