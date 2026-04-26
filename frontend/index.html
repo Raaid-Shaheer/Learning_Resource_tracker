@@ -255,9 +255,16 @@
         <input type="text" id="input-title" placeholder="e.g. Python Full Course"/>
       </div>
       <div class="form-group">
-        <label>Link</label>
-        <input type="url" id="input-link" placeholder="https://..."/>
-      </div>
+  <label>Link <span class="required">*</span></label>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="url" id="input-link" placeholder="https://..." required style="flex: 1;"/>
+    <button id="btn-summarize" type="button" class="btn-secondary" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 5px;">
+      <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
+      AI
+    </button>
+  </div>
+  <small id="summarize-status" style="color: var(--accent); display: none; margin-top: 4px; font-weight: 600;">✨ Summarizing...</small>
+</div>
       <div class="form-group">
         <label>Description <span class="optional">optional</span></label>
         <textarea id="input-description" placeholder="Short description..."></textarea>

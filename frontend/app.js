@@ -2,6 +2,7 @@
 // CONSTANTS
 // ============================================================
 const API_URL = "http://127.0.0.1:8000";
+const SUMMARIZER_API = "http://127.0.0.1:8000/api/summarize";
 
 // ============================================================
 // STATE
@@ -642,6 +643,45 @@ async function deleteResource() {
     }
 }
 
+
+// --- SUMMARIZATION LOGIC ---
+async function autoSummarize() {
+    const url = inputLink.value.trim();
+    const statusEl = document.getElementById("summarize-status");
+    const btnSummarize = document.getElementById("btn-summarize");
+
+    if (!url) {
+        alert("Please paste a link first!");
+        return;
+    }
+
+    statusEl.style.display = "block";
+    btnSummarize.disabled = true;
+    inputDesc.placeholder = "Gemini 3 is thinking...";
+
+    try {
+        const response = await fetch(SUMMARIZER_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: url })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            inputDesc.value = data.summary;
+            statusEl.innerText = "✨ Generating Summary!";
+            setTimeout(() => { statusEl.style.display = "none"; }, 3000);
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        statusEl.innerText = "❌ Could not summarize.";
+        inputDesc.placeholder = "Enter description manually...";
+    } finally {
+        btnSummarize.disabled = false;
+    }
+}
 // ============================================================
 // REFRESH — reload whichever page is active
 // ============================================================
@@ -655,8 +695,14 @@ function refreshCurrentPage() {
 // EVENT LISTENERS
 // ============================================================
 btnSave.addEventListener("click", saveResource);
+// Find your btnSave.addEventListener and add this one below it:
+document.getElementById("btn-summarize").addEventListener("click", (e) => {
+    e.preventDefault();
+    autoSummarize();
+});
 btnConfirmDel.addEventListener("click", deleteResource);
 btnConfirmCan.addEventListener("click", closeConfirmModal);
+
 
 if (searchInput) {
     searchInput.addEventListener("input", loadAllResources);

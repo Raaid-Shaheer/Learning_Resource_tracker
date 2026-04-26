@@ -487,7 +487,7 @@ body {
   transition: color 0.15s;
 }
 .res-title-link:hover { color: var(--accent); }
-.res-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.res-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Actions */
 .res-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
@@ -886,4 +886,26 @@ body {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Summarizer UI */
+#summarize-status {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+#btn-summarize:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+#btn-summarize:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
