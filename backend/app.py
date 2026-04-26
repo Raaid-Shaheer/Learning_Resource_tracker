@@ -13,9 +13,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 # Local database imports (assuming these files exist in your project structure)
-from .database import engine, get_db
-from .models import Base, Domain, ResourceType          
-from . import models, schemas
+from backend.database import engine, get_db
+from backend.models import Base, Domain, ResourceType
+from backend import models, schemas
 
 # 1. Load the .env file and initialize Gemini Client
 basedir = os.path.abspath(os.path.dirname(__file__))

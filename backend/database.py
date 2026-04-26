@@ -6,6 +6,12 @@ import os
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+# Force SQLAlchemy to use the pymysql driver
+if DATABASE_URL and DATABASE_URL.startswith("mysql://"):
+    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+
+# If no URL is found (local testing), fallback to sqlite
+engine = create_engine(DATABASE_URL or "sqlite:///./test.db", pool_pre_ping=True)
 
 engine = create_engine(DATABASE_URL,pool_pre_ping=True)
 
