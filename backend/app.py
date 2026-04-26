@@ -11,6 +11,11 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+
 
 # Local database imports (assuming these files exist in your project structure)
 from backend.database import engine, get_db
@@ -28,6 +33,9 @@ print(f"DEBUG: API Key loaded: {api_key is not None}")
 
 # 2. Initialize FastAPI
 app = FastAPI()
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,13 +112,15 @@ def generate_summary(text: str) -> str:
 # ── API ROUTES ────────────────────────────────────────────────
 
 @app.get("/")
-def root():
-    return {"message": "Learning Resource Tracker API is running"}
+async def serve_index():
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
 # ── AI Summarizer Endpoints ───────────────────────────────────
 
 @app.post("/api/summarize")
-def summarize_endpoint(req: SummarizeRequest):
+async def summarize_endpoint(req: SummarizeRequest):
     url = req.url
     
     if not url:
