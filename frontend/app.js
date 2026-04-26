@@ -9,6 +9,8 @@ const API_URL = "http://127.0.0.1:8000";
 let editingId   = null;
 let deletingId  = null;
 let currentPage = "home";
+let selectedTags  = [];   // tags currently selected in the modal
+let allTags       = [];   // all tags fetched from GET /tags
 let currentDept = "CS";
 let currentType = null;
 
@@ -124,15 +126,21 @@ function buildResourceItem(resource) {
     // Body
     const body = document.createElement("div");
     body.className = "res-body";
+    const tagHTML = resource.tags && resource.tags.length
+        ? `<div class="res-tags">${resource.tags.map(t =>
+            `<span class="tag-chip-card">${t.name}</span>`).join("")}</div>`
+        : "";
+
     body.innerHTML = `
         <div>
             <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
                 ${typeLabel(resource.resource_type)}
             </span>
-            <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.department)}</span>
+            <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.domain)}</span>
         </div>
         <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
         <p class="res-desc">${resource.description || "No description provided."}</p>
+        ${tagHTML}
     `;
     item.appendChild(body);
 
@@ -242,7 +250,7 @@ async function loadHomeData() {
 
         // ── Domain card counts
         const domainCounts = { CS: 0, ECE: 0, Other: 0 };
-        resources.forEach(r => { if (domainCounts[r.department] !== undefined) domainCounts[r.department]++; });
+        resources.forEach(r => { if (domainCounts[r.domain] !== undefined) domainCounts[r.domain]++; });
         document.getElementById("count-CS").textContent    = `${domainCounts.CS} resources`;
         document.getElementById("count-ECE").textContent   = `${domainCounts.ECE} resources`;
         document.getElementById("count-Other").textContent = `${domainCounts.Other} resources`;
@@ -431,6 +439,92 @@ async function loadAllResources() {
     }
 }
 
+
+// ============================================================
+// TAG SYSTEM
+// ============================================================
+
+// Fetch all existing tags from the API and cache them
+async function loadAllTags() {
+    try {
+        const response = await fetch(`${API_URL}/tags`);
+        allTags = await response.json();
+    } catch (err) {
+        console.error("Failed to load tags:", err);
+    }
+}
+
+// Render the preset suggestions below the tag input
+function renderTagPresets() {
+    const container = document.getElementById("tag-presets");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Show all known tags as clickable presets
+    // Tags already selected are greyed out
+    allTags.forEach(tag => {
+        const btn = document.createElement("button");
+        btn.className = "tag-preset-btn" + (selectedTags.includes(tag.name) ? " used" : "");
+        btn.textContent = tag.name;
+        btn.type = "button";
+        btn.onclick = () => addTag(tag.name);
+        container.appendChild(btn);
+    });
+}
+
+// Add a tag to the selected list
+function addTag(name) {
+    name = name.trim().toLowerCase();
+    if (!name || selectedTags.includes(name)) return;
+    selectedTags.push(name);
+    renderSelectedTags();
+    renderTagPresets();
+}
+
+// Remove a tag from the selected list
+function removeTag(name) {
+    selectedTags = selectedTags.filter(t => t !== name);
+    renderSelectedTags();
+    renderTagPresets();
+}
+
+// Render the pills inside the tag input box
+function renderSelectedTags() {
+    const container = document.getElementById("tag-selected");
+    if (!container) return;
+    container.innerHTML = "";
+    selectedTags.forEach(name => {
+        const pill = document.createElement("span");
+        pill.className = "tag-pill-selected";
+        pill.innerHTML = `${name}<button onclick="removeTag('${name}')" title="Remove">×</button>`;
+        container.appendChild(pill);
+    });
+}
+
+// Wire up the tag text input — Enter or comma adds the tag
+function initTagInput() {
+    const input = document.getElementById("tag-input");
+    if (!input) return;
+    input.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            const val = input.value.trim().replace(/,$/, "");
+            if (val) { addTag(val); input.value = ""; }
+        }
+        // Backspace on empty input removes last tag
+        if (e.key === "Backspace" && input.value === "" && selectedTags.length > 0) {
+            removeTag(selectedTags[selectedTags.length - 1]);
+        }
+    });
+    // Also add on blur if something is typed
+    input.addEventListener("blur", () => {
+        const val = input.value.trim();
+        if (val) { addTag(val); input.value = ""; }
+    });
+    // Click anywhere in the wrap focuses the input
+    document.getElementById("tag-input-wrap").addEventListener("click", () => input.focus());
+}
+
 // ============================================================
 // MODAL — ADD
 // ============================================================
@@ -442,6 +536,11 @@ function openAddModal() {
     inputDesc.value  = "";
     inputDept.value  = "CS";
     inputType.value  = "Video";
+    // Reset tags
+    selectedTags = [];
+    renderSelectedTags();
+    renderTagPresets();
+    initTagInput();
     resourceModal.classList.remove("hidden");
 }
 
@@ -457,8 +556,13 @@ async function openEditModal(id) {
         inputTitle.value = resource.title;
         inputLink.value  = resource.link;
         inputDesc.value  = resource.description || "";
-        inputDept.value  = resource.department;
+        inputDept.value  = resource.domain;
         inputType.value  = resource.resource_type;
+        // Pre-fill tags
+        selectedTags = resource.tags ? resource.tags.map(t => t.name) : [];
+        renderSelectedTags();
+        renderTagPresets();
+        initTagInput();
         resourceModal.classList.remove("hidden");
     } catch (err) {
         console.error("Failed to load resource for edit:", err);
@@ -486,12 +590,20 @@ function closeConfirmModal() {
 // SAVE — create or update
 // ============================================================
 async function saveResource() {
+    // Flush any typed-but-not-confirmed tag
+    const tagInputEl = document.getElementById("tag-input");
+    if (tagInputEl && tagInputEl.value.trim()) {
+        addTag(tagInputEl.value.trim());
+        tagInputEl.value = "";
+    }
+
     const body = {
         title:         inputTitle.value.trim(),
         link:          inputLink.value.trim(),
         description:   inputDesc.value.trim(),
-        department:    inputDept.value,
+        domain:        inputDept.value,
         resource_type: inputType.value,
+        tags:          [...selectedTags],
     };
 
     if (!body.title || !body.link) {
@@ -582,4 +694,5 @@ document.getElementById("confirm-modal").addEventListener("click", function(e) {
 // ============================================================
 // INIT
 // ============================================================
+loadAllTags();
 navigate("home");

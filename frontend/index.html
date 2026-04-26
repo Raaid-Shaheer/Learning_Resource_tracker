@@ -21,9 +21,9 @@
   <div class="nav-left">
     <div class="brand" onclick="navigate('home')">
       <div class="brand-icon">
-         <img src="Logo.png" alt="SkillForge Logo" />
+        <img src="logo.png" alt="logo" class="brand-logo"/>
       </div>
-      <span class="brand-name">SKILL<span class="brand-accent">FORGE</span></span>
+      <span class="brand-name">Skill<span class="brand-accent">Forge</span></span>
     </div>
     <div class="search-wrap" id="nav-search-wrap">
       <span class="material-symbols-outlined search-icon">search</span>
@@ -264,7 +264,7 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Department</label>
+          <label>Domain</label>
           <select id="input-department">
             <option value="CS">Computer Science</option>
             <option value="ECE">Electronics</option>
@@ -280,6 +280,15 @@
             <option value="Github Repo">GitHub Repo</option>
           </select>
         </div>
+      </div>
+      <!-- TAG INPUT -->
+      <div class="form-group">
+        <label>Tags <span class="optional">optional — press Enter or comma to add</span></label>
+        <div class="tag-input-wrap" id="tag-input-wrap">
+          <div class="tag-selected" id="tag-selected"></div>
+          <input type="text" id="tag-input" placeholder="e.g. python, machine learning..." autocomplete="off"/>
+        </div>
+        <div class="tag-presets" id="tag-presets"></div>
       </div>
     </div>
     <div class="modal-footer">
