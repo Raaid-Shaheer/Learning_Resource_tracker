@@ -336,9 +336,9 @@ body {
 /* ============================================================
    DEPARTMENT CARDS
    ============================================================ */
-.dept-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.dom-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 
-.dept-card {
+.dom-card {
   border-radius: var(--radius-lg);
   padding: 24px;
   cursor: pointer;
@@ -349,24 +349,24 @@ body {
   transition: transform 0.25s, box-shadow 0.25s;
   box-shadow: 10px 10px 24px rgba(0,0,0,0.3), -4px -4px 12px rgba(255,255,255,0.08), inset 1px 1px 4px rgba(255,255,255,0.15);
 }
-.dept-card:hover { transform: translateY(-5px); box-shadow: 14px 14px 32px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.08); }
-.dept-card-glow { position: absolute; width: 120px; height: 120px; border-radius: 50%; bottom: -30px; right: -30px; opacity: 0.2; background: #fff; pointer-events: none; }
-.dept-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
-.dept-arrow { color: rgba(255,255,255,0.35); font-size: 20px; transition: transform 0.2s; }
-.dept-card:hover .dept-arrow { transform: translateX(4px); color: rgba(255,255,255,0.6); }
+.dom-card:hover { transform: translateY(-5px); box-shadow: 14px 14px 32px rgba(0,0,0,0.4), -4px -4px 12px rgba(255,255,255,0.08); }
+.dom-card-glow { position: absolute; width: 120px; height: 120px; border-radius: 50%; bottom: -30px; right: -30px; opacity: 0.2; background: #fff; pointer-events: none; }
+.dom-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+.dom-arrow { color: rgba(255,255,255,0.35); font-size: 20px; transition: transform 0.2s; }
+.dom-card:hover .dom-arrow { transform: translateX(4px); color: rgba(255,255,255,0.6); }
 
-.dept-icon {
+.dom-icon {
   width: 48px; height: 48px; border-radius: 14px;
   background: rgba(255,255,255,0.15);
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
-.dept-icon .material-symbols-outlined { font-size: 24px; color: #fff; }
+.dom-icon .material-symbols-outlined { font-size: 24px; color: #fff; }
 
-.dept-name { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-.dept-desc { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 16px; }
-.dept-count {
+.dom-name { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.dom-desc { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 16px; }
+.dom-count {
   display: inline-block;
   background: rgba(255,255,255,0.12);
   color: rgba(255,255,255,0.75);
@@ -375,9 +375,9 @@ body {
   letter-spacing: 0.04em;
 }
 
-.dept-cs    { background: linear-gradient(145deg, #0f2d5e 0%, #1e40af 100%); }
-.dept-ece   { background: linear-gradient(145deg, #0d3320 0%, #166534 100%); }
-.dept-other { background: linear-gradient(145deg, #2e0761 0%, #6b21a8 100%); }
+.dom-cs    { background: linear-gradient(145deg, #0f2d5e 0%, #1e40af 100%); }
+.dom-ece   { background: linear-gradient(145deg, #0d3320 0%, #166534 100%); }
+.dom-other { background: linear-gradient(145deg, #2e0761 0%, #6b21a8 100%); }
 
 /* ============================================================
    CATEGORY CHIPS
@@ -411,7 +411,7 @@ body {
 /* ============================================================
    DEPARTMENT PAGE HERO
    ============================================================ */
-.dept-page-hero {
+.dom-page-hero {
   border-radius: var(--radius-lg);
   padding: 32px 36px;
   margin-bottom: 32px;
@@ -419,10 +419,10 @@ body {
   box-shadow: 0 16px 48px rgba(0,0,0,0.18);
   position: relative; overflow: hidden;
 }
-.dept-page-hero .dept-icon { width: 56px; height: 56px; border-radius: 16px; }
-.dept-page-hero .dept-icon .material-symbols-outlined { font-size: 28px; }
-.dept-hero-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 4px; }
-.dept-hero-sub { font-size: 14px; color: rgba(255,255,255,0.55); }
+.dom-page-hero .dom-icon { width: 56px; height: 56px; border-radius: 16px; }
+.dom-page-hero .dom-icon .material-symbols-outlined { font-size: 28px; }
+.dom-hero-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.dom-hero-sub { font-size: 14px; color: rgba(255,255,255,0.55); }
 
 /* ============================================================
    RESOURCE LIST ITEMS
@@ -474,7 +474,7 @@ body {
 .badge-pl   { background: var(--pl-light);  color: #b45309; }
 .badge-web  { background: var(--web-light); color: #1d4ed8; }
 .badge-gh   { background: var(--gh-light);  color: #334155; }
-.badge-dept { background: #f0f9ff; color: #0369a1; }
+.badge-dom { background: #f0f9ff; color: #0369a1; }
 
 .res-title-link {
   display: block;
@@ -649,7 +649,7 @@ body {
 @media (max-width: 900px) {
   :root { --sidebar-w: 0px; }
   .sidebar { display: none; }
-  .dept-grid { grid-template-columns: 1fr; }
+  .dom-grid { grid-template-columns: 1fr; }
   .cat-grid  { grid-template-columns: 1fr 1fr; }
   .main-content { padding: 20px 16px 40px; }
   .hero-section { padding: 32px 24px; flex-direction: column; }

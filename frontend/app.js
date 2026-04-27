@@ -12,7 +12,7 @@ let deletingId  = null;
 let currentPage = "home";
 let selectedTags  = [];   // tags currently selected in the modal
 let allTags       = [];   // all tags fetched from GET /tags
-let currentDept = "CS";
+let currentdom = "CS";
 let currentType = null;
 
 // ============================================================
@@ -24,13 +24,13 @@ const modalTitle      = document.getElementById("modal-title");
 const inputTitle      = document.getElementById("input-title");
 const inputLink       = document.getElementById("input-link");
 const inputDesc       = document.getElementById("input-description");
-const inputDept       = document.getElementById("input-domain");
+const inputdom       = document.getElementById("input-domain");
 const inputType       = document.getElementById("input-type");
 const btnSave         = document.getElementById("btn-save");
 const btnConfirmDel   = document.getElementById("btn-confirm-delete");
 const btnConfirmCan   = document.getElementById("btn-confirm-cancel");
 const searchInput     = document.getElementById("search-input");
-const filterDept      = document.getElementById("filter-domain");
+const filterdom      = document.getElementById("filter-domain");
 const filterType      = document.getElementById("filter-type");
 const globalSearch    = document.getElementById("global-search");
 
@@ -109,9 +109,9 @@ function openBtnClass(type) {
     return map[type] || "btn-open-web";
 }
 
-function deptLabel(dept) {
+function domLabel(dom) {
     const map = { "CS": "Computer Science", "ECE": "Electronics", "Other": "Other Fun Stuff" }; // Domains
-    return map[dept] || dept;
+    return map[dom] || dom;
 }
 
 // ============================================================
@@ -137,7 +137,7 @@ function buildResourceItem(resource) {
             <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
                 ${typeLabel(resource.resource_type)}
             </span>
-            <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.domain)}</span>
+            <span class="res-type-badge badge-dom" style="margin-left:6px;">${domLabel(resource.domain)}</span>
         </div>
         <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
         <p class="res-desc">${resource.description || "No description provided."}</p>
@@ -197,16 +197,16 @@ function navigate(page, param = null) {
         setBreadcrumb([{ label: "Home" }]);
         loadHomeData();
 
-    } else if (page === "dept") {
-        currentDept = param || currentDept;
+    } else if (page === "dom") {
+        currentdom = param || currentdom;
         currentType = null;
-        document.getElementById("page-dept").classList.add("active");
-        document.getElementById("link-dept").classList.add("active");
+        document.getElementById("page-dom").classList.add("active");
+        document.getElementById("link-dom").classList.add("active");
         setBreadcrumb([
             { label: "Home", action: () => navigate("home") },
-            { label: deptLabel(currentDept) }
+            { label: domLabel(currentdom) }
         ]);
-        loadDeptPage(currentDept);
+        loaddomPage(currentdom);
 
     } else if (page === "resources") {
         document.getElementById("page-resources").classList.add("active");
@@ -313,27 +313,27 @@ async function loadHomeData() {
 // ============================================================
 // domain PAGE
 // ============================================================
-async function loadDeptPage(dept) {
+async function loaddomPage(dom) {
     try {
-        const response  = await fetch(`${API_URL}/resources?domain=${dept}`);
+        const response  = await fetch(`${API_URL}/resources?domain=${dom}`);
         const resources = await response.json();
 
-        // Render the dept hero banner
+        // Render the dom hero banner
         const heroConfig = {
-            CS:    { label: "Computer Science", sub: "Algorithms, data structures, AI, and software engineering.", icon: "terminal",  cls: "dept-cs"    },
-            ECE:   { label: "Electronics",       sub: "Circuits, microcontrollers, and embedded systems.",          icon: "memory",    cls: "dept-ece"   },
-            Other: { label: "Other Fun Stuff",   sub: "Curiosity-driven learning beyond the syllabus.",            icon: "explore",   cls: "dept-other" },
+            CS:    { label: "Computer Science", sub: "Algorithms, data structures, AI, and software engineering.", icon: "terminal",  cls: "dom-cs"    },
+            ECE:   { label: "Electronics",       sub: "Circuits, microcontrollers, and embedded systems.",          icon: "memory",    cls: "dom-ece"   },
+            Other: { label: "Other Fun Stuff",   sub: "Curiosity-driven learning beyond the syllabus.",            icon: "explore",   cls: "dom-other" },
         };
-        const cfg = heroConfig[dept] || heroConfig.CS;
-        const hero = document.getElementById("dept-page-hero");
-        hero.className = `dept-page-hero ${cfg.cls}`;
+        const cfg = heroConfig[dom] || heroConfig.CS;
+        const hero = document.getElementById("dom-page-hero");
+        hero.className = `dom-page-hero ${cfg.cls}`;
         hero.innerHTML = `
-            <div class="dept-icon ${`dept-icon-${dept.toLowerCase().replace(' ','-')}`}">
+            <div class="dom-icon ${`dom-icon-${dom.toLowerCase().replace(' ','-')}`}">
                 <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">${cfg.icon}</span>
             </div>
             <div>
-                <div class="dept-hero-title">${cfg.label}</div>
-                <div class="dept-hero-sub">${cfg.sub}</div>
+                <div class="dom-hero-title">${cfg.label}</div>
+                <div class="dom-hero-sub">${cfg.sub}</div>
             </div>
         `;
 
@@ -362,19 +362,19 @@ async function loadDeptPage(dept) {
                 <div class="cat-label">${tc.label}</div>
                 <div class="cat-count">${counts[type]} resource${counts[type] !== 1 ? 's' : ''}</div>
             `;
-            chip.onclick = () => loadDeptTypeResources(dept, type, chip);
+            chip.onclick = () => loaddomTypeResources(dom, type, chip);
             catGrid.appendChild(chip);
         });
 
         // Hide the resource section until a category is clicked
-        document.getElementById("dept-resources-section").style.display = "none";
+        document.getElementById("dom-resources-section").style.display = "none";
 
     } catch (err) {
-        console.error("Failed to load dept page:", err);
+        console.error("Failed to load dom page:", err);
     }
 }
 
-async function loadDeptTypeResources(dept, type, chipEl) {
+async function loaddomTypeResources(dom, type, chipEl) {
     // Toggle active chip
     document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("active"));
     chipEl.classList.add("active");
@@ -383,24 +383,24 @@ async function loadDeptTypeResources(dept, type, chipEl) {
     // Update breadcrumb
     setBreadcrumb([
         { label: "Home",               action: () => navigate("home") },
-        { label: deptLabel(dept),      action: () => navigate("dept", dept) },
+        { label: domLabel(dom),      action: () => navigate("dom", dom) },
         { label: typeLabel(type) }
     ]);
 
     try {
-        const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
+        const response  = await fetch(`${API_URL}/resources?domain=${dom}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
 
-        const section = document.getElementById("dept-resources-section");
-        const list    = document.getElementById("dept-resources-list");
-        const title   = document.getElementById("dept-resources-title");
+        const section = document.getElementById("dom-resources-section");
+        const list    = document.getElementById("dom-resources-list");
+        const title   = document.getElementById("dom-resources-title");
 
         section.style.display = "block";
-        title.textContent = `${typeLabel(type)} — ${deptLabel(dept)}`;
+        title.textContent = `${typeLabel(type)} — ${domLabel(dom)}`;
         list.innerHTML = "";
 
         if (resources.length === 0) {
-            list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${deptLabel(dept)} yet.</div>`;
+            list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${domLabel(dom)} yet.</div>`;
         } else {
             resources.forEach(r => list.appendChild(buildResourceItem(r)));
         }
@@ -409,7 +409,7 @@ async function loadDeptTypeResources(dept, type, chipEl) {
         section.scrollIntoView({ behavior: "smooth", block: "start" });
 
     } catch (err) {
-        console.error("Failed to load dept type resources:", err);
+        console.error("Failed to load dom type resources:", err);
     }
 }
 
@@ -419,10 +419,10 @@ async function loadDeptTypeResources(dept, type, chipEl) {
 async function loadAllResources() {
     const params = new URLSearchParams();
     const search = searchInput ? searchInput.value.trim() : "";
-    const dept   = filterDept  ? filterDept.value  : "";
+    const dom   = filterdom  ? filterdom.value  : "";
     const type   = filterType  ? filterType.value  : "";
     if (search) params.append("title", search);
-    if (dept)   params.append("domain", dept);
+    if (dom)   params.append("domain", dom);
     if (type)   params.append("resource_type", type);
 
     try {
@@ -535,7 +535,7 @@ function openAddModal() {
     inputTitle.value = "";
     inputLink.value  = "";
     inputDesc.value  = "";
-    inputDept.value  = "CS";
+    inputDom.value  = "CS";
     inputType.value  = "Video";
     // Reset tags
     selectedTags = [];
@@ -557,7 +557,7 @@ async function openEditModal(id) {
         inputTitle.value = resource.title;
         inputLink.value  = resource.link;
         inputDesc.value  = resource.description || "";
-        inputDept.value  = resource.domain;
+        inputdom.value  = resource.domain;
         inputType.value  = resource.resource_type;
         // Pre-fill tags
         selectedTags = resource.tags ? resource.tags.map(t => t.name) : [];
@@ -602,7 +602,7 @@ async function saveResource() {
         title:         inputTitle.value.trim(),
         link:          inputLink.value.trim(),
         description:   inputDesc.value.trim(),
-        domain:        inputDept.value,
+        domain:        inputdom.value,
         resource_type: inputType.value,
         tags:          [...selectedTags],
     };
@@ -687,7 +687,7 @@ async function autoSummarize() {
 // ============================================================
 function refreshCurrentPage() {
     if (currentPage === "home")       loadHomeData();
-    else if (currentPage === "dept")  loadDeptPage(currentDept);
+    else if (currentPage === "dom")  loaddomPage(currentdom);
     else if (currentPage === "resources") loadAllResources();
 }
 
@@ -707,8 +707,8 @@ btnConfirmCan.addEventListener("click", closeConfirmModal);
 if (searchInput) {
     searchInput.addEventListener("input", loadAllResources);
 }
-if (filterDept) {
-    filterDept.addEventListener("change", loadAllResources);
+if (filterdom) {
+    filterdom.addEventListener("change", loadAllResources);
 }
 if (filterType) {
     filterType.addEventListener("change", loadAllResources);
