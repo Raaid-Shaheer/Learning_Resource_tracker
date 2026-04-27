@@ -6,7 +6,7 @@
 <title>SkillForge</title>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
-<<link rel="stylesheet" href="/static/style.css"/>
+<link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
 
@@ -46,7 +46,7 @@
       <span class="material-symbols-outlined">dashboard</span>
       Dashboard
     </a>
-    <a class="sidebar-link" id="link-dom" onclick="navigate('dom', currentdom || 'CS')">
+    <a class="sidebar-link" id="link-dept" onclick="navigate('dept', currentDept || 'CS')">
       <span class="material-symbols-outlined">account_tree</span>
       Domains
     </a>
@@ -100,45 +100,45 @@
       <div class="section-header">
         <h2 class="section-title">Domains</h2>
       </div>
-      <div class="dom-grid">
+      <div class="dept-grid">
 
-        <div class="dom-card dom-cs" onclick="navigate('dom', 'CS')">
-          <div class="dom-card-glow"></div>
-          <div class="dom-card-top">
-            <div class="dom-icon dom-icon-cs">
+        <div class="dept-card dept-cs" onclick="navigate('dept', 'CS')">
+          <div class="dept-card-glow"></div>
+          <div class="dept-card-top">
+            <div class="dept-icon dept-icon-cs">
               <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">terminal</span>
             </div>
-            <span class="dom-arrow material-symbols-outlined">arrow_forward</span>
+            <span class="dept-arrow material-symbols-outlined">arrow_forward</span>
           </div>
-          <h3 class="dom-name">Computer Science</h3>
-          <p class="dom-desc">Algorithms, data structures, AI, and software engineering.</p>
-          <span class="dom-count" id="count-CS">loading...</span>
+          <h3 class="dept-name">Computer Science</h3>
+          <p class="dept-desc">Algorithms, data structures, AI, and software engineering.</p>
+          <span class="dept-count" id="count-CS">loading...</span>
         </div>
 
-        <div class="dom-card dom-ece" onclick="navigate('dom', 'ECE')">
-          <div class="dom-card-glow"></div>
-          <div class="dom-card-top">
-            <div class="dom-icon dom-icon-ece">
+        <div class="dept-card dept-ece" onclick="navigate('dept', 'ECE')">
+          <div class="dept-card-glow"></div>
+          <div class="dept-card-top">
+            <div class="dept-icon dept-icon-ece">
               <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">memory</span>
             </div>
-            <span class="dom-arrow material-symbols-outlined">arrow_forward</span>
+            <span class="dept-arrow material-symbols-outlined">arrow_forward</span>
           </div>
-          <h3 class="dom-name">Electronics</h3>
-          <p class="dom-desc">Circuits, microcontrollers, and embedded systems.</p>
-          <span class="dom-count" id="count-ECE">loading...</span>
+          <h3 class="dept-name">Electronics</h3>
+          <p class="dept-desc">Circuits, microcontrollers, and embedded systems.</p>
+          <span class="dept-count" id="count-ECE">loading...</span>
         </div>
 
-        <div class="dom-card dom-other" onclick="navigate('dom', 'Other')">
-          <div class="dom-card-glow"></div>
-          <div class="dom-card-top">
-            <div class="dom-icon dom-icon-other">
+        <div class="dept-card dept-other" onclick="navigate('dept', 'Other')">
+          <div class="dept-card-glow"></div>
+          <div class="dept-card-top">
+            <div class="dept-icon dept-icon-other">
               <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">explore</span>
             </div>
-            <span class="dom-arrow material-symbols-outlined">arrow_forward</span>
+            <span class="dept-arrow material-symbols-outlined">arrow_forward</span>
           </div>
-          <h3 class="dom-name">Other Fun Stuff</h3>
-          <p class="dom-desc">Curiosity-driven learning beyond the syllabus.</p>
-          <span class="dom-count" id="count-Other">loading...</span>
+          <h3 class="dept-name">Other Fun Stuff</h3>
+          <p class="dept-desc">Curiosity-driven learning beyond the syllabus.</p>
+          <span class="dept-count" id="count-Other">loading...</span>
         </div>
 
       </div>
@@ -197,17 +197,17 @@
   </div>
 
   <!-- PAGE: DEPARTMENT -->
-  <div id="page-dom" class="page">
-    <div class="dom-page-hero" id="dom-page-hero"></div>
+  <div id="page-dept" class="page">
+    <div class="dept-page-hero" id="dept-page-hero"></div>
     <section class="section">
       <h2 class="section-title" style="margin-bottom:1.25rem;">Resource Categories</h2>
       <div class="cat-grid" id="cat-grid"></div>
     </section>
-    <section class="section" id="dom-resources-section" style="display:none;">
+    <section class="section" id="dept-resources-section" style="display:none;">
       <div class="section-header">
-        <h2 class="section-title" id="dom-resources-title"></h2>
+        <h2 class="section-title" id="dept-resources-title"></h2>
       </div>
-      <div id="dom-resources-list" class="resource-list"></div>
+      <div id="dept-resources-list" class="resource-list"></div>
     </section>
   </div>
 
@@ -255,16 +255,16 @@
         <input type="text" id="input-title" placeholder="e.g. Python Full Course"/>
       </div>
       <div class="form-group">
-  <label>Link <span class="required">*</span></label>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <input type="url" id="input-link" placeholder="https://..." required style="flex: 1;"/>
-    <button id="btn-summarize" type="button" class="btn-secondary" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 5px;">
-      <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
-      AI
-    </button>
-  </div>
-  <small id="summarize-status" style="color: var(--accent); display: none; margin-top: 4px; font-weight: 600;">✨ Summarizing...</small>
-</div>
+        <label>Link <span class="required">*</span></label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="url" id="input-link" placeholder="https://..." required style="flex: 1;"/>
+          <button id="btn-summarize" type="button" class="btn-secondary" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 5px;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
+            AI
+          </button>
+        </div>
+        <small id="summarize-status" style="color: var(--accent); display: none; margin-top: 4px; font-weight: 600;">✨ Summarizing...</small>
+      </div>
       <div class="form-group">
         <label>Description <span class="optional">optional</span></label>
         <textarea id="input-description" placeholder="Short description..."></textarea>

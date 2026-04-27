@@ -13,18 +13,13 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
 
-
-
-# Local database imports (assuming these files exist in your project structure)
 from backend.database import engine, get_db
 from backend.models import Base, Domain, ResourceType
 from backend import models, schemas
 
-# 1. Load the .env file and initialize Gemini Client
+# 1. Load .env and initialize Gemini
 basedir = os.path.abspath(os.path.dirname(__file__))
-# Adjust the path to your .env file if necessary
 load_dotenv(os.path.join(basedir, '../.env'))
 
 api_key = os.getenv("GEMINI_API_KEY")
@@ -49,15 +44,14 @@ app.add_middleware(
 )
 
 # 3. Database Setup
-# create_all only creates tables that DON'T exist yet
 Base.metadata.create_all(bind=engine)
 
-# ── Pydantic Models for Summarizer ────────────────────────────
+# ── Pydantic Models ───────────────────────────────────────────
 
 class SummarizeRequest(BaseModel):
     url: str
 
-# ── EXTRACTION HELPERS (From Flask app) ───────────────────────
+# ── Extraction Helpers ────────────────────────────────────────
 
 def extract_website_text(url: str) -> str:
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -66,7 +60,7 @@ def extract_website_text(url: str) -> str:
         soup = BeautifulSoup(response.content, 'html.parser')
         paragraphs = soup.find_all('p')
         text = " ".join([p.get_text() for p in paragraphs])
-        return text[:10000] 
+        return text[:10000]
     except Exception:
         return ""
 
@@ -83,7 +77,8 @@ def extract_youtube_transcript(url: str) -> str:
 
 def extract_github_readme(url: str) -> str:
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
-    if not match: return ""
+    if not match:
+        return ""
     username, repo = match.groups()
     try:
         api_url = f"https://api.github.com/repos/{username}/{repo}/readme"
@@ -93,15 +88,14 @@ def extract_github_readme(url: str) -> str:
     except Exception:
         return ""
 
-# ── AI LOGIC ──────────────────────────────────────────────────
+# ── AI Logic ──────────────────────────────────────────────────
 
 def generate_summary(text: str) -> str:
     if not text.strip():
         return "No content found to summarize."
-    
     try:
         response = client.models.generate_content(
-            model='gemini-3-flash-preview', 
+            model='gemini-3-flash-preview',
             contents=f"Summarize this content in 2-3 sentences:\n\n{text}"
         )
         return response.text
@@ -109,24 +103,19 @@ def generate_summary(text: str) -> str:
         print(f"Error with primary model: {e}")
         return "Error generating summary. Please check model availability."
 
-# ── API ROUTES ────────────────────────────────────────────────
+# ── API Routes ────────────────────────────────────────────────
+# ALL routes must be defined BEFORE the static mount at the bottom.
 
 @app.get("/")
 async def serve_index():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="frontend")
-
-# ── AI Summarizer Endpoints ───────────────────────────────────
-
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
     url = req.url
-    
     if not url:
         raise HTTPException(status_code=400, detail="No URL provided")
 
-    # Determine which extractor to use
     if "youtube.com" in url or "youtu.be" in url:
         content = extract_youtube_transcript(url)
     elif "github.com" in url:
@@ -134,15 +123,8 @@ async def summarize_endpoint(req: SummarizeRequest):
     else:
         content = extract_website_text(url)
 
-    # Generate and return summary
     summary = generate_summary(content)
-    
-    return {
-        "success": True,
-        "summary": summary
-    }
-
-# ── Tags Endpoints ────────────────────────────────────────────
+    return {"success": True, "summary": summary}
 
 @app.get("/tags", response_model=list[schemas.Tag])
 def get_tags(db: Session = Depends(get_db)):
@@ -152,45 +134,40 @@ def get_tags(db: Session = Depends(get_db)):
 def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
     if existing:
-        return existing          
+        return existing
     new_tag = models.Tag(name=tag.name)
     db.add(new_tag)
     db.commit()
     db.refresh(new_tag)
     return new_tag
 
-# ── Resource Endpoints ────────────────────────────────────────
-
 @app.post("/resources/", response_model=schemas.Resource)
 def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db)):
     db_resource = models.Resource(
         title=resource.title,
         link=resource.link,
-        domain=resource.domain,                 
+        domain=resource.domain,
         resource_type=resource.resource_type,
         description=resource.description,
     )
     if resource.tags:
         db_resource.tags = _resolve_tags(resource.tags, db)
-
     db.add(db_resource)
     db.commit()
     db.refresh(db_resource)
     return db_resource
 
-
 @app.get("/resources", response_model=list[schemas.Resource])
 def get_resources(
     title: str | None = None,
-    domain: Domain | None = None,                
+    domain: Domain | None = None,
     resource_type: ResourceType | None = None,
-    tag: str | None = None,                      
+    tag: str | None = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Resource)
-
     if title:
         query = query.filter(models.Resource.title.ilike(f"%{title}%"))
     if domain:
@@ -199,9 +176,7 @@ def get_resources(
         query = query.filter(models.Resource.resource_type == resource_type)
     if tag:
         query = query.filter(models.Resource.tags.any(models.Tag.name == tag))
-
     return query.offset(skip).limit(limit).all()
-
 
 @app.get("/resources/{resource_id}", response_model=schemas.Resource)
 def get_resource(resource_id: int, db: Session = Depends(get_db)):
@@ -210,23 +185,18 @@ def get_resource(resource_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
     return resource
 
-
 @app.put("/resources/{resource_id}", response_model=schemas.Resource)
 def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Session = Depends(get_db)):
     resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
-
     for key, value in updated.dict(exclude_unset=True, exclude={"tags"}).items():
         setattr(resource, key, value)
-
     if updated.tags is not None:
         resource.tags = _resolve_tags(updated.tags, db)
-
     db.commit()
     db.refresh(resource)
     return resource
-
 
 @app.delete("/resources/{resource_id}")
 def delete_resource(resource_id: int, db: Session = Depends(get_db)):
@@ -237,7 +207,7 @@ def delete_resource(resource_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Resource {resource_id} deleted"}
 
-# ── Helper Functions ──────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────
 
 def _resolve_tags(tag_names: list[str], db: Session) -> list[models.Tag]:
     tags = []
@@ -249,8 +219,10 @@ def _resolve_tags(tag_names: list[str], db: Session) -> list[models.Tag]:
         if not tag:
             tag = models.Tag(name=name)
             db.add(tag)
-            db.flush()     
+            db.flush()
         tags.append(tag)
     return tags
 
-# Run with: uv run uvicorn app.app:app --reload 
+# ── Static Files ──────────────────────────────────────────────
+# MUST be last — mounted at /static so it never intercepts API routes.
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="frontend")

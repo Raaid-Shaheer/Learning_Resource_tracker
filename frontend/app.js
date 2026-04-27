@@ -12,7 +12,7 @@ let deletingId  = null;
 let currentPage = "home";
 let selectedTags  = [];   // tags currently selected in the modal
 let allTags       = [];   // all tags fetched from GET /tags
-let currentdom = "CS";
+let currentDept = "CS";
 let currentType = null;
 
 // ============================================================
@@ -24,13 +24,13 @@ const modalTitle      = document.getElementById("modal-title");
 const inputTitle      = document.getElementById("input-title");
 const inputLink       = document.getElementById("input-link");
 const inputDesc       = document.getElementById("input-description");
-const inputdom       = document.getElementById("input-domain");
+const inputDept       = document.getElementById("input-department");
 const inputType       = document.getElementById("input-type");
 const btnSave         = document.getElementById("btn-save");
 const btnConfirmDel   = document.getElementById("btn-confirm-delete");
 const btnConfirmCan   = document.getElementById("btn-confirm-cancel");
 const searchInput     = document.getElementById("search-input");
-const filterdom      = document.getElementById("filter-domain");
+const filterDept      = document.getElementById("filter-department");
 const filterType      = document.getElementById("filter-type");
 const globalSearch    = document.getElementById("global-search");
 
@@ -38,7 +38,6 @@ const globalSearch    = document.getElementById("global-search");
 // HELPERS — THUMBNAIL
 // ============================================================
 
-// Extract YouTube video ID from various URL formats
 function getYouTubeId(url) {
     if (!url) return null;
     const patterns = [
@@ -54,7 +53,6 @@ function getYouTubeId(url) {
     return null;
 }
 
-// Build the thumbnail element for a resource
 function buildThumbnail(resource) {
     const type = resource.resource_type;
     const ytId  = (type === "Video" || type === "Playlist") ? getYouTubeId(resource.link) : null;
@@ -64,10 +62,7 @@ function buildThumbnail(resource) {
         img.className = "res-thumb";
         img.alt = resource.title;
         img.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-        // Fallback if thumbnail fails to load
-        img.onerror = () => {
-            img.replaceWith(iconPlaceholder(type));
-        };
+        img.onerror = () => { img.replaceWith(iconPlaceholder(type)); };
         return img;
     }
     return iconPlaceholder(type);
@@ -109,9 +104,9 @@ function openBtnClass(type) {
     return map[type] || "btn-open-web";
 }
 
-function domLabel(dom) {
-    const map = { "CS": "Computer Science", "ECE": "Electronics", "Other": "Other Fun Stuff" }; // Domains
-    return map[dom] || dom;
+function deptLabel(dept) {
+    const map = { "CS": "Computer Science", "ECE": "Electronics", "Other": "Other Fun Stuff" };
+    return map[dept] || dept;
 }
 
 // ============================================================
@@ -121,10 +116,8 @@ function buildResourceItem(resource) {
     const item = document.createElement("div");
     item.className = "resource-item";
 
-    // Thumbnail
     item.appendChild(buildThumbnail(resource));
 
-    // Body
     const body = document.createElement("div");
     body.className = "res-body";
     const tagHTML = resource.tags && resource.tags.length
@@ -137,7 +130,7 @@ function buildResourceItem(resource) {
             <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
                 ${typeLabel(resource.resource_type)}
             </span>
-            <span class="res-type-badge badge-dom" style="margin-left:6px;">${domLabel(resource.domain)}</span>
+            <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.domain)}</span>
         </div>
         <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
         <p class="res-desc">${resource.description || "No description provided."}</p>
@@ -145,7 +138,6 @@ function buildResourceItem(resource) {
     `;
     item.appendChild(body);
 
-    // Actions
     const actions = document.createElement("div");
     actions.className = "res-actions";
 
@@ -181,12 +173,10 @@ function buildResourceItem(resource) {
 }
 
 // ============================================================
-// NAVIGATION — the SPA router
+// NAVIGATION
 // ============================================================
 function navigate(page, param = null) {
-    // Hide all pages
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-    // Remove all sidebar active states
     document.querySelectorAll(".sidebar-link").forEach(l => l.classList.remove("active"));
 
     currentPage = page;
@@ -197,16 +187,16 @@ function navigate(page, param = null) {
         setBreadcrumb([{ label: "Home" }]);
         loadHomeData();
 
-    } else if (page === "dom") {
-        currentdom = param || currentdom;
+    } else if (page === "dept") {
+        currentDept = param || currentDept;
         currentType = null;
-        document.getElementById("page-dom").classList.add("active");
-        document.getElementById("link-dom").classList.add("active");
+        document.getElementById("page-dept").classList.add("active");
+        document.getElementById("link-dept").classList.add("active");
         setBreadcrumb([
             { label: "Home", action: () => navigate("home") },
-            { label: domLabel(currentdom) }
+            { label: deptLabel(currentDept) }
         ]);
-        loaddomPage(currentdom);
+        loadDeptPage(currentDept);
 
     } else if (page === "resources") {
         document.getElementById("page-resources").classList.add("active");
@@ -246,34 +236,27 @@ async function loadHomeData() {
         const response  = await fetch(`${API_URL}/resources`);
         const resources = await response.json();
 
-        // ── Hero stat
         document.getElementById("stat-total").textContent = resources.length;
 
-        // ── Domain card counts
         const domainCounts = { CS: 0, ECE: 0, Other: 0 };
         resources.forEach(r => { if (domainCounts[r.domain] !== undefined) domainCounts[r.domain]++; });
         document.getElementById("count-CS").textContent    = `${domainCounts.CS} resources`;
         document.getElementById("count-ECE").textContent   = `${domainCounts.ECE} resources`;
         document.getElementById("count-Other").textContent = `${domainCounts.Other} resources`;
 
-        // ── Stat cards
         document.getElementById("sc-total").textContent = resources.length;
 
-        // Most active domain
         const topDomain = Object.entries(domainCounts).sort((a,b) => b[1]-a[1])[0];
         const domainNames = { CS: "Computer Science", ECE: "Electronics", Other: "Other Fun Stuff" };
         document.getElementById("sc-top-domain").textContent =
             resources.length === 0 ? "—" : `${domainNames[topDomain[0]]}`;
 
-        // Videos + Playlists
         const mediaCount = resources.filter(r => r.resource_type === "Video" || r.resource_type === "Playlist").length;
         document.getElementById("sc-videos").textContent = mediaCount;
 
-        // Latest addition
         const newest = resources.length > 0 ? resources[resources.length - 1] : null;
         document.getElementById("sc-newest").textContent = newest ? newest.title : "None yet";
 
-        // ── Type breakdown bar
         const typeCounts = { "Video": 0, "Playlist": 0, "Website": 0, "Github Repo": 0 };
         resources.forEach(r => { if (typeCounts[r.resource_type] !== undefined) typeCounts[r.resource_type]++; });
         const total = resources.length || 1;
@@ -285,9 +268,9 @@ async function loadHomeData() {
             { key: "Github Repo", cls: "bar-gh",  label: "GitHub",  dot: "#1e293b" },
         ];
 
-        const barsEl  = document.getElementById("breakdown-bars");
+        const barsEl   = document.getElementById("breakdown-bars");
         const legendEl = document.getElementById("breakdown-legend");
-        barsEl.innerHTML  = "";
+        barsEl.innerHTML   = "";
         legendEl.innerHTML = "";
 
         barConfig.forEach(({ key, cls, label, dot }) => {
@@ -311,39 +294,37 @@ async function loadHomeData() {
 }
 
 // ============================================================
-// domain PAGE
+// DEPARTMENT PAGE
 // ============================================================
-async function loaddomPage(dom) {
+async function loadDeptPage(dept) {
     try {
-        const response  = await fetch(`${API_URL}/resources?domain=${dom}`);
+        // FIX: was ?department= — backend expects ?domain=
+        const response  = await fetch(`${API_URL}/resources?domain=${dept}`);
         const resources = await response.json();
 
-        // Render the dom hero banner
         const heroConfig = {
-            CS:    { label: "Computer Science", sub: "Algorithms, data structures, AI, and software engineering.", icon: "terminal",  cls: "dom-cs"    },
-            ECE:   { label: "Electronics",       sub: "Circuits, microcontrollers, and embedded systems.",          icon: "memory",    cls: "dom-ece"   },
-            Other: { label: "Other Fun Stuff",   sub: "Curiosity-driven learning beyond the syllabus.",            icon: "explore",   cls: "dom-other" },
+            CS:    { label: "Computer Science", sub: "Algorithms, data structures, AI, and software engineering.", icon: "terminal",  cls: "dept-cs"    },
+            ECE:   { label: "Electronics",       sub: "Circuits, microcontrollers, and embedded systems.",          icon: "memory",    cls: "dept-ece"   },
+            Other: { label: "Other Fun Stuff",   sub: "Curiosity-driven learning beyond the syllabus.",            icon: "explore",   cls: "dept-other" },
         };
-        const cfg = heroConfig[dom] || heroConfig.CS;
-        const hero = document.getElementById("dom-page-hero");
-        hero.className = `dom-page-hero ${cfg.cls}`;
+        const cfg = heroConfig[dept] || heroConfig.CS;
+        const hero = document.getElementById("dept-page-hero");
+        hero.className = `dept-page-hero ${cfg.cls}`;
         hero.innerHTML = `
-            <div class="dom-icon ${`dom-icon-${dom.toLowerCase().replace(' ','-')}`}">
+            <div class="dept-icon ${`dept-icon-${dept.toLowerCase().replace(' ','-')}`}">
                 <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">${cfg.icon}</span>
             </div>
             <div>
-                <div class="dom-hero-title">${cfg.label}</div>
-                <div class="dom-hero-sub">${cfg.sub}</div>
+                <div class="dept-hero-title">${cfg.label}</div>
+                <div class="dept-hero-sub">${cfg.sub}</div>
             </div>
         `;
 
-        // Count per type
         const types = ["Video", "Playlist", "Website", "Github Repo"];
         const counts = {};
         types.forEach(t => counts[t] = 0);
         resources.forEach(r => { if (counts[r.resource_type] !== undefined) counts[r.resource_type]++; });
 
-        // Render category chips
         const catGrid = document.getElementById("cat-grid");
         catGrid.innerHTML = "";
         const typeConfig = {
@@ -362,54 +343,51 @@ async function loaddomPage(dom) {
                 <div class="cat-label">${tc.label}</div>
                 <div class="cat-count">${counts[type]} resource${counts[type] !== 1 ? 's' : ''}</div>
             `;
-            chip.onclick = () => loaddomTypeResources(dom, type, chip);
+            chip.onclick = () => loadDeptTypeResources(dept, type, chip);
             catGrid.appendChild(chip);
         });
 
-        // Hide the resource section until a category is clicked
-        document.getElementById("dom-resources-section").style.display = "none";
+        document.getElementById("dept-resources-section").style.display = "none";
 
     } catch (err) {
-        console.error("Failed to load dom page:", err);
+        console.error("Failed to load dept page:", err);
     }
 }
 
-async function loaddomTypeResources(dom, type, chipEl) {
-    // Toggle active chip
+async function loadDeptTypeResources(dept, type, chipEl) {
     document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("active"));
     chipEl.classList.add("active");
     currentType = type;
 
-    // Update breadcrumb
     setBreadcrumb([
         { label: "Home",               action: () => navigate("home") },
-        { label: domLabel(dom),      action: () => navigate("dom", dom) },
+        { label: deptLabel(dept),      action: () => navigate("dept", dept) },
         { label: typeLabel(type) }
     ]);
 
     try {
-        const response  = await fetch(`${API_URL}/resources?domain=${dom}&resource_type=${encodeURIComponent(type)}`);
+        // FIX: was ?department= — backend expects ?domain=
+        const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
 
-        const section = document.getElementById("dom-resources-section");
-        const list    = document.getElementById("dom-resources-list");
-        const title   = document.getElementById("dom-resources-title");
+        const section = document.getElementById("dept-resources-section");
+        const list    = document.getElementById("dept-resources-list");
+        const title   = document.getElementById("dept-resources-title");
 
         section.style.display = "block";
-        title.textContent = `${typeLabel(type)} — ${domLabel(dom)}`;
+        title.textContent = `${typeLabel(type)} — ${deptLabel(dept)}`;
         list.innerHTML = "";
 
         if (resources.length === 0) {
-            list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${domLabel(dom)} yet.</div>`;
+            list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${deptLabel(dept)} yet.</div>`;
         } else {
             resources.forEach(r => list.appendChild(buildResourceItem(r)));
         }
 
-        // Scroll to the section
         section.scrollIntoView({ behavior: "smooth", block: "start" });
 
     } catch (err) {
-        console.error("Failed to load dom type resources:", err);
+        console.error("Failed to load dept type resources:", err);
     }
 }
 
@@ -419,10 +397,11 @@ async function loaddomTypeResources(dom, type, chipEl) {
 async function loadAllResources() {
     const params = new URLSearchParams();
     const search = searchInput ? searchInput.value.trim() : "";
-    const dom   = filterdom  ? filterdom.value  : "";
+    const dept   = filterDept  ? filterDept.value  : "";
     const type   = filterType  ? filterType.value  : "";
     if (search) params.append("title", search);
-    if (dom)   params.append("domain", dom);
+    // FIX: was "department" — backend expects "domain"
+    if (dept)   params.append("domain", dept);
     if (type)   params.append("resource_type", type);
 
     try {
@@ -440,12 +419,9 @@ async function loadAllResources() {
     }
 }
 
-
 // ============================================================
 // TAG SYSTEM
 // ============================================================
-
-// Fetch all existing tags from the API and cache them
 async function loadAllTags() {
     try {
         const response = await fetch(`${API_URL}/tags`);
@@ -455,14 +431,10 @@ async function loadAllTags() {
     }
 }
 
-// Render the preset suggestions below the tag input
 function renderTagPresets() {
     const container = document.getElementById("tag-presets");
     if (!container) return;
     container.innerHTML = "";
-
-    // Show all known tags as clickable presets
-    // Tags already selected are greyed out
     allTags.forEach(tag => {
         const btn = document.createElement("button");
         btn.className = "tag-preset-btn" + (selectedTags.includes(tag.name) ? " used" : "");
@@ -473,7 +445,6 @@ function renderTagPresets() {
     });
 }
 
-// Add a tag to the selected list
 function addTag(name) {
     name = name.trim().toLowerCase();
     if (!name || selectedTags.includes(name)) return;
@@ -482,14 +453,12 @@ function addTag(name) {
     renderTagPresets();
 }
 
-// Remove a tag from the selected list
 function removeTag(name) {
     selectedTags = selectedTags.filter(t => t !== name);
     renderSelectedTags();
     renderTagPresets();
 }
 
-// Render the pills inside the tag input box
 function renderSelectedTags() {
     const container = document.getElementById("tag-selected");
     if (!container) return;
@@ -502,7 +471,6 @@ function renderSelectedTags() {
     });
 }
 
-// Wire up the tag text input — Enter or comma adds the tag
 function initTagInput() {
     const input = document.getElementById("tag-input");
     if (!input) return;
@@ -512,17 +480,14 @@ function initTagInput() {
             const val = input.value.trim().replace(/,$/, "");
             if (val) { addTag(val); input.value = ""; }
         }
-        // Backspace on empty input removes last tag
         if (e.key === "Backspace" && input.value === "" && selectedTags.length > 0) {
             removeTag(selectedTags[selectedTags.length - 1]);
         }
     });
-    // Also add on blur if something is typed
     input.addEventListener("blur", () => {
         const val = input.value.trim();
         if (val) { addTag(val); input.value = ""; }
     });
-    // Click anywhere in the wrap focuses the input
     document.getElementById("tag-input-wrap").addEventListener("click", () => input.focus());
 }
 
@@ -535,9 +500,8 @@ function openAddModal() {
     inputTitle.value = "";
     inputLink.value  = "";
     inputDesc.value  = "";
-    inputDom.value  = "CS";
+    inputDept.value  = "CS";
     inputType.value  = "Video";
-    // Reset tags
     selectedTags = [];
     renderSelectedTags();
     renderTagPresets();
@@ -557,9 +521,8 @@ async function openEditModal(id) {
         inputTitle.value = resource.title;
         inputLink.value  = resource.link;
         inputDesc.value  = resource.description || "";
-        inputdom.value  = resource.domain;
+        inputDept.value  = resource.domain;
         inputType.value  = resource.resource_type;
-        // Pre-fill tags
         selectedTags = resource.tags ? resource.tags.map(t => t.name) : [];
         renderSelectedTags();
         renderTagPresets();
@@ -591,7 +554,6 @@ function closeConfirmModal() {
 // SAVE — create or update
 // ============================================================
 async function saveResource() {
-    // Flush any typed-but-not-confirmed tag
     const tagInputEl = document.getElementById("tag-input");
     if (tagInputEl && tagInputEl.value.trim()) {
         addTag(tagInputEl.value.trim());
@@ -602,7 +564,7 @@ async function saveResource() {
         title:         inputTitle.value.trim(),
         link:          inputLink.value.trim(),
         description:   inputDesc.value.trim(),
-        domain:        inputdom.value,
+        domain:        inputDept.value,
         resource_type: inputType.value,
         tags:          [...selectedTags],
     };
@@ -643,8 +605,9 @@ async function deleteResource() {
     }
 }
 
-
-// --- SUMMARIZATION LOGIC ---
+// ============================================================
+// AI SUMMARIZER
+// ============================================================
 async function autoSummarize() {
     const url = inputLink.value.trim();
     const statusEl = document.getElementById("summarize-status");
@@ -657,7 +620,7 @@ async function autoSummarize() {
 
     statusEl.style.display = "block";
     btnSummarize.disabled = true;
-    inputDesc.placeholder = "Gemini 3 is thinking...";
+    inputDesc.placeholder = "Gemini is thinking...";
 
     try {
         const response = await fetch(SUMMARIZER_API, {
@@ -670,7 +633,7 @@ async function autoSummarize() {
 
         if (data.success) {
             inputDesc.value = data.summary;
-            statusEl.innerText = "✨ Generating Summary!";
+            statusEl.innerText = "✨ Done!";
             setTimeout(() => { statusEl.style.display = "none"; }, 3000);
         } else {
             throw new Error(data.error);
@@ -682,12 +645,13 @@ async function autoSummarize() {
         btnSummarize.disabled = false;
     }
 }
+
 // ============================================================
-// REFRESH — reload whichever page is active
+// REFRESH
 // ============================================================
 function refreshCurrentPage() {
-    if (currentPage === "home")       loadHomeData();
-    else if (currentPage === "dom")  loaddomPage(currentdom);
+    if (currentPage === "home")           loadHomeData();
+    else if (currentPage === "dept")      loadDeptPage(currentDept);
     else if (currentPage === "resources") loadAllResources();
 }
 
@@ -695,26 +659,19 @@ function refreshCurrentPage() {
 // EVENT LISTENERS
 // ============================================================
 btnSave.addEventListener("click", saveResource);
-// Find your btnSave.addEventListener and add this one below it:
+
 document.getElementById("btn-summarize").addEventListener("click", (e) => {
     e.preventDefault();
     autoSummarize();
 });
+
 btnConfirmDel.addEventListener("click", deleteResource);
 btnConfirmCan.addEventListener("click", closeConfirmModal);
 
+if (searchInput) searchInput.addEventListener("input", loadAllResources);
+if (filterDept)  filterDept.addEventListener("change", loadAllResources);
+if (filterType)  filterType.addEventListener("change", loadAllResources);
 
-if (searchInput) {
-    searchInput.addEventListener("input", loadAllResources);
-}
-if (filterdom) {
-    filterdom.addEventListener("change", loadAllResources);
-}
-if (filterType) {
-    filterType.addEventListener("change", loadAllResources);
-}
-
-// Global search — navigates to all resources page with query pre-filled
 if (globalSearch) {
     globalSearch.addEventListener("keydown", e => {
         if (e.key === "Enter" && globalSearch.value.trim()) {
@@ -729,7 +686,6 @@ if (globalSearch) {
     });
 }
 
-// Close modals on overlay click
 document.getElementById("resource-modal").addEventListener("click", function(e) {
     if (e.target === this) closeModal();
 });
