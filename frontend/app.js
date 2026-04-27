@@ -24,13 +24,13 @@ const modalTitle      = document.getElementById("modal-title");
 const inputTitle      = document.getElementById("input-title");
 const inputLink       = document.getElementById("input-link");
 const inputDesc       = document.getElementById("input-description");
-const inputDept       = document.getElementById("input-department");
+const inputDept       = document.getElementById("input-domain");
 const inputType       = document.getElementById("input-type");
 const btnSave         = document.getElementById("btn-save");
 const btnConfirmDel   = document.getElementById("btn-confirm-delete");
 const btnConfirmCan   = document.getElementById("btn-confirm-cancel");
 const searchInput     = document.getElementById("search-input");
-const filterDept      = document.getElementById("filter-department");
+const filterDept      = document.getElementById("filter-domain");
 const filterType      = document.getElementById("filter-type");
 const globalSearch    = document.getElementById("global-search");
 
@@ -311,11 +311,11 @@ async function loadHomeData() {
 }
 
 // ============================================================
-// DEPARTMENT PAGE
+// domain PAGE
 // ============================================================
 async function loadDeptPage(dept) {
     try {
-        const response  = await fetch(`${API_URL}/resources?department=${dept}`);
+        const response  = await fetch(`${API_URL}/resources?domain=${dept}`);
         const resources = await response.json();
 
         // Render the dept hero banner
@@ -388,7 +388,7 @@ async function loadDeptTypeResources(dept, type, chipEl) {
     ]);
 
     try {
-        const response  = await fetch(`${API_URL}/resources?department=${dept}&resource_type=${encodeURIComponent(type)}`);
+        const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
 
         const section = document.getElementById("dept-resources-section");
@@ -422,7 +422,7 @@ async function loadAllResources() {
     const dept   = filterDept  ? filterDept.value  : "";
     const type   = filterType  ? filterType.value  : "";
     if (search) params.append("title", search);
-    if (dept)   params.append("department", dept);
+    if (dept)   params.append("domain", dept);
     if (type)   params.append("resource_type", type);
 
     try {
