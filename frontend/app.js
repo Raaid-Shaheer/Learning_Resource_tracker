@@ -466,7 +466,7 @@ async function loadAllTags() {
         allTags = await response.json();
         renderTagPresets();
 
-        // NEW — populate the filter dropdown
+        // populate the filter dropdown
         const filterTag = document.getElementById("filter-tag");
         if (filterTag) {
             filterTag.innerHTML = `<option value="">All Tags</option>`;
