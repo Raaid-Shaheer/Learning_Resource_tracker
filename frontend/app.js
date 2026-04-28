@@ -619,6 +619,7 @@ async function autoSummarize() {
     }
 
     statusEl.style.display = "block";
+    statusEl.innerText = "✨ Gemini is thinking...";
     btnSummarize.disabled = true;
     inputDesc.placeholder = "Gemini is thinking...";
 
@@ -626,17 +627,31 @@ async function autoSummarize() {
         const response = await fetch(SUMMARIZER_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: url })
+            body: JSON.stringify({ url })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            inputDesc.value = data.summary;
+            // Always fill description
+            inputDesc.value = data.summary || "";
+
+            // Fill title — ask first if field already has content
+            if (data.title) {
+                if (inputTitle.value.trim() === "") {
+                    inputTitle.value = data.title;
+                } else {
+                    const overwrite = confirm(
+                        `AI suggested this title:\n\n"${data.title}"\n\nReplace your current title?`
+                    );
+                    if (overwrite) inputTitle.value = data.title;
+                }
+            }
+
             statusEl.innerText = "✨ Done!";
             setTimeout(() => { statusEl.style.display = "none"; }, 3000);
         } else {
-            throw new Error(data.error);
+            throw new Error(data.error || "Unknown error");
         }
     } catch (error) {
         statusEl.innerText = "❌ Could not summarize.";

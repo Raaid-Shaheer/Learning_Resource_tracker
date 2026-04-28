@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
 from google import genai  
+import json
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,7 +74,9 @@ def extract_youtube_transcript(url: str) -> str:
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
         return " ".join([item['text'] for item in transcript])
     except Exception:
-        return ""
+        # No transcript available — fall back to scraping the page meta
+        print(f"No transcript for {video_id}, falling back to page scrape")
+        return extract_website_text(url)
 
 def extract_github_readme(url: str) -> str:
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
@@ -92,19 +95,33 @@ def extract_github_readme(url: str) -> str:
 
 def generate_summary(text: str) -> str:
     if not text.strip():
-        return "No content found to summarize."
+        return {"title": "", "summary": "No content found to summarize."}
     try:
         response = client.models.generate_content(
             model='gemini-3-flash-preview',
-            contents=f"Summarize this content in 2-3 sentences:\n\n{text}"
+            contents=f"""
+You are analyzing the following content extracted from a learning resource.
+
+Return a JSON object with exactly two keys:
+- "title": a clean, human-readable title (use the actual page/video title if present in the content, then polish it — remove site names, pipes, dashes at the end)
+- "summary": 2-3 sentences describing what this resource teaches and who it's for
+
+Content:
+{text[:3000]}
+
+Return ONLY raw JSON. No markdown, no backticks, no explanation.
+"""
         )
-        return response.text
+        raw = response.text.strip()
+        # Safety net: slice from first { to last } in case Gemini adds any fluff
+        start = raw.index("{")
+        end   = raw.rindex("}") + 1
+        return json.loads(raw[start:end])
     except Exception as e:
         print(f"Error with primary model: {e}")
-        return "Error generating summary. Please check model availability."
+        return {"title": "", "summary": "Error generating summary."}
 
 # ── API Routes ────────────────────────────────────────────────
-# ALL routes must be defined BEFORE the static mount at the bottom.
 
 @app.get("/")
 async def serve_index():
@@ -123,8 +140,8 @@ async def summarize_endpoint(req: SummarizeRequest):
     else:
         content = extract_website_text(url)
 
-    summary = generate_summary(content)
-    return {"success": True, "summary": summary}
+    result = generate_summary(content)    # now a dict
+    return {"success": True, **result}    # sends: {success, title, summary}
 
 @app.get("/tags", response_model=list[schemas.Tag])
 def get_tags(db: Session = Depends(get_db)):
