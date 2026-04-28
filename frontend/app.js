@@ -76,6 +76,18 @@ function iconPlaceholder(type) {
     return div;
 }
 
+function filterByTag(tagName) {
+    navigate("resources");
+    setTimeout(() => {
+        const filterTag = document.getElementById("filter-tag");
+        if (filterTag) {
+            filterTag.value = tagName;
+            loadAllResources();
+        }
+    }, 50);   
+}
+
+
 // ============================================================
 // HELPERS — TYPE STYLING
 // ============================================================
@@ -121,9 +133,11 @@ function buildResourceItem(resource) {
     const body = document.createElement("div");
     body.className = "res-body";
     const tagHTML = resource.tags && resource.tags.length
-        ? `<div class="res-tags">${resource.tags.map(t =>
-            `<span class="tag-chip-card">${t.name}</span>`).join("")}</div>`
-        : "";
+    ? `<div class="res-tags">${resource.tags.map(t =>
+        `<span class="tag-chip-card tag-chip-clickable" 
+               onclick="filterByTag('${t.name}')">${t.name}</span>`
+      ).join("")}</div>`
+    : "";
 
     body.innerHTML = `
         <div>
@@ -287,6 +301,27 @@ async function loadHomeData() {
             li.innerHTML = `<div class="legend-dot" style="background:${dot}"></div>${label} <strong>${typeCounts[key]}</strong>`;
             legendEl.appendChild(li);
         });
+                // Count tag usage across all resources
+        const tagCounts = {};
+        resources.forEach(r => {
+            (r.tags || []).forEach(t => {
+                tagCounts[t.name] = (tagCounts[t.name] || 0) + 1;
+            });
+        });
+
+        const topTags = Object.entries(tagCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+
+        const topTagsEl = document.getElementById("top-tags-list");
+        if (topTagsEl) {
+            topTagsEl.innerHTML = topTags.length
+                ? topTags.map(([name, count]) =>
+                    `<span class="tag-chip-card tag-chip-clickable" 
+                        onclick="filterByTag('${name}')">${name} <strong>${count}</strong></span>`
+                ).join("")
+                : `<span style="color:var(--text-secondary);font-size:0.85rem;">No tags yet</span>`;
+        }
 
     } catch (err) {
         console.error("Failed to load home data:", err);
@@ -399,10 +434,13 @@ async function loadAllResources() {
     const search = searchInput ? searchInput.value.trim() : "";
     const dept   = filterDept  ? filterDept.value  : "";
     const type   = filterType  ? filterType.value  : "";
+    const tag    = document.getElementById("filter-tag")?.value || "";
+
     if (search) params.append("title", search);
     // FIX: was "department" — backend expects "domain"
     if (dept)   params.append("domain", dept);
     if (type)   params.append("resource_type", type);
+    if (tag)    params.append("tag", tag);
 
     try {
         const response  = await fetch(`${API_URL}/resources?${params}`);
@@ -426,6 +464,16 @@ async function loadAllTags() {
     try {
         const response = await fetch(`${API_URL}/tags`);
         allTags = await response.json();
+        renderTagPresets();
+
+        // NEW — populate the filter dropdown
+        const filterTag = document.getElementById("filter-tag");
+        if (filterTag) {
+            filterTag.innerHTML = `<option value="">All Tags</option>`;
+            allTags.forEach(tag => {
+                filterTag.innerHTML += `<option value="${tag.name}">${tag.name}</option>`;
+            });
+        }
     } catch (err) {
         console.error("Failed to load tags:", err);
     }
@@ -707,6 +755,10 @@ document.getElementById("resource-modal").addEventListener("click", function(e) 
 document.getElementById("confirm-modal").addEventListener("click", function(e) {
     if (e.target === this) closeConfirmModal();
 });
+
+const filterTag = document.getElementById("filter-tag");
+if (filterTag) filterTag.addEventListener("change", loadAllResources);
+
 
 // ============================================================
 // INIT
