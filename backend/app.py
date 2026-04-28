@@ -70,13 +70,36 @@ def extract_youtube_transcript(url: str) -> str:
     if not video_id_match:
         return ""
     video_id = video_id_match.group(1)
+    
+    # Try transcript first
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'en-GB'])
         return " ".join([item['text'] for item in transcript])
     except Exception:
-        # No transcript available — fall back to scraping the page meta
-        print(f"No transcript for {video_id}, falling back to page scrape")
-        return extract_website_text(url)
+        print(f"No transcript for {video_id}, falling back to meta scrape")
+
+    # Fallback: scrape meta tags + paragraph text from the page
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        parts = []
+
+        # Meta tags — YouTube puts title & description here even in raw HTML
+        for tag in soup.find_all("meta"):
+            name    = tag.get("name", "") or tag.get("property", "")
+            content = tag.get("content", "")
+            if content and any(k in name for k in ["title", "description", "keywords"]):
+                parts.append(content)
+
+        # Any visible paragraph text
+        parts += [p.get_text() for p in soup.find_all("p")]
+
+        return " ".join(parts)[:10000]
+    except Exception as e:
+        print(f"YouTube meta scrape failed: {e}")
+        return ""
 
 def extract_github_readme(url: str) -> str:
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
