@@ -1,8 +1,14 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, Table, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Enum, Table, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
 import enum
+from datetime import datetime,timezone
 
+
+
+# ── Helper Functions ────────────────────────────────────────────────────
+def utcnow():
+    return datetime.now(timezone.utc)
 
 # ── Enums ────────────────────────────────────────────────────
 
@@ -17,6 +23,10 @@ class ResourceType(str, enum.Enum):
     WEBSITE  = "Website"
     GITHUB   = "Github Repo"
 
+class UserRole(str,enum.Enum):
+    owner = "owner"
+    contributor = "contributor"
+    viewer = "viewer"
 
 # ── Association Table ─────────────────────────────────────────
 # this is NOT a class — it's a plain Table object
@@ -54,9 +64,20 @@ class Resource(Base):
     id            = Column(Integer, primary_key=True, index=True)
     title         = Column(String(255), nullable=False)
     link          = Column(String(500), nullable=False)
-    domain        = Column(Enum(Domain), nullable=False)        # renamed from department
+    domain        = Column(Enum(Domain), nullable=False)        
     resource_type = Column(Enum(ResourceType), nullable=False)
     description   = Column(Text)
 
     # SQLAlchemy will automatically join through the resource_tags table for you
     tags = relationship("Tag", secondary=resource_tags, back_populates="resources")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id              = Column(Integer,primary_key=True,index= True, autoincrement=True)
+    username        = Column(String(100), nullable=False,unique=True)
+    email           = Column(String(255), nullable=False, unique=True)
+    password_hash   = Column(String(255), nullable=False)
+    role            = Column(Enum(UserRole),default=UserRole.viewer)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    

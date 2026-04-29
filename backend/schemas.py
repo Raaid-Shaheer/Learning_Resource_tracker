@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
-from .models import Domain, ResourceType    
+from pydantic import BaseModel, Field, ConfigDict
+from .models import Domain, ResourceType,UserRole
+from datetime import datetime  
 
 
 # ── Tag schemas ───────────────────────────────────────────────
@@ -49,3 +50,26 @@ class ResourceUpdate(BaseModel):
     resource_type: ResourceType | None = None
     description:   str | None = None
     tags:          list[str] | None = None  # ← None = untouched, [] = cleared
+
+
+# ── User schemas ──────────────────────────────────────────
+
+# What the frontend sends when registering
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str  
+
+# What the server sends back (NEVER send password_hash out)
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: UserRole
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# What lives inside the JWT payload
+class TokenData(BaseModel):
+     user_id: int
+     role: UserRole
