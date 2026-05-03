@@ -307,14 +307,6 @@ def delete_resource(resource_id: int, db: Session = Depends(get_db),current_user
     return {"message": f"Resource {resource_id} deleted"}
 
 
-@app.post("/admin/make-owner")
-def make_owner(username: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-    user.role = UserRole.owner
-    db.commit()
-    return {"message": f"{username} is now owner"}
 # ── Helpers ───────────────────────────────────────────────────
 
 def _resolve_tags(tag_names: list[str], db: Session) -> list[models.Tag]:
