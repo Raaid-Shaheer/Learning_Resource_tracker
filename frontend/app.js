@@ -244,20 +244,23 @@ function buildResourceItem(resource) {
     const editRow = document.createElement("div");
     editRow.className = "res-edit-row";
 
-    const editBtn = document.createElement("button");
-    editBtn.className = "btn-icon btn-icon-edit";
-    editBtn.title = "Edit";
-    editBtn.innerHTML = `<span class="material-symbols-outlined">edit</span>`;
-    editBtn.onclick = () => openEditModal(resource.id);
+    if (currentUser && currentUser.role === "owner") {
+        const editBtn = document.createElement("button");
+        editBtn.className = "btn-icon btn-icon-edit";
+        editBtn.title = "Edit";
+        editBtn.innerHTML = `<span class="material-symbols-outlined">edit</span>`;
+        editBtn.onclick = () => openEditModal(resource.id);
 
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn-icon btn-icon-del";
-    delBtn.title = "Delete";
-    delBtn.innerHTML = `<span class="material-symbols-outlined">delete</span>`;
-    delBtn.onclick = () => openDeleteConfirm(resource.id);
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn-icon btn-icon-del";
+        delBtn.title = "Delete";
+        delBtn.innerHTML = `<span class="material-symbols-outlined">delete</span>`;
+        delBtn.onclick = () => openDeleteConfirm(resource.id);
 
-    editRow.appendChild(editBtn);
-    editRow.appendChild(delBtn);
+        editRow.appendChild(editBtn);
+        editRow.appendChild(delBtn);
+    }
+    
     actions.appendChild(openBtn);
     actions.appendChild(editRow);
     item.appendChild(actions);
