@@ -40,7 +40,64 @@ function openLoginModal() {
     document.getElementById("login-username").value = "";
     document.getElementById("login-password").value = "";
 }
+function openRegisterModal() {
+    document.getElementById("register-modal").classList.remove("hidden");
+    document.getElementById("reg-error").style.display = "none";
+    document.getElementById("reg-success").style.display = "none";
+    document.getElementById("reg-username").value = "";
+    document.getElementById("reg-email").value = "";
+    document.getElementById("reg-password").value = "";
+}
 
+function closeRegisterModal() {
+    document.getElementById("register-modal").classList.add("hidden");
+}
+
+function switchToRegister() {
+    closeLoginModal();
+    openRegisterModal();
+}
+
+function switchToLogin() {
+    closeRegisterModal();
+    openLoginModal();
+}
+
+async function submitRegister() {
+    const username = document.getElementById("reg-username").value.trim();
+    const email    = document.getElementById("reg-email").value.trim();
+    const password = document.getElementById("reg-password").value;
+    const errorEl  = document.getElementById("reg-error");
+    const successEl = document.getElementById("reg-success");
+
+    if (!username || !email || !password) {
+        errorEl.textContent = "All fields are required.";
+        errorEl.style.display = "block";
+        return;
+    }
+
+    try {
+        const res  = await fetch("/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = data.detail || "Registration failed.";
+            errorEl.style.display = "block";
+            successEl.style.display = "none";
+            return;
+        }
+        successEl.textContent = "Account created! You can now log in.";
+        successEl.style.display = "block";
+        errorEl.style.display = "none";
+        setTimeout(() => switchToLogin(), 1500);
+    } catch (err) {
+        errorEl.textContent = "Could not connect to server.";
+        errorEl.style.display = "block";
+    }
+}
 function closeLoginModal() {
     document.getElementById("login-modal").classList.add("hidden");
 }
@@ -260,7 +317,7 @@ function buildResourceItem(resource) {
         editRow.appendChild(editBtn);
         editRow.appendChild(delBtn);
     }
-    
+
     actions.appendChild(openBtn);
     actions.appendChild(editRow);
     item.appendChild(actions);
@@ -849,6 +906,9 @@ document.getElementById("login-modal").addEventListener("click", function(e) {
 const filterTag = document.getElementById("filter-tag");
 if (filterTag) filterTag.addEventListener("change", loadAllResources);
 
+document.getElementById("register-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeRegisterModal();
+});
 
 // ============================================================
 // INIT

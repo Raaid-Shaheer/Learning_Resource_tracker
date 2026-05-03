@@ -273,12 +273,52 @@
       </div>
       <p id="login-error" style="color:var(--danger, #e53e3e); font-size:0.875rem; display:none;"></p>
     </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeLoginModal()">Cancel</button>
-      <button class="btn-primary" id="btn-login-submit" onclick="submitLogin()">Login</button>
+    <div class="modal-footer" style="justify-content:space-between;align-items:center;">
+      <button class="btn-ghost" onclick="switchToRegister()" style="font-size:13px;color:var(--accent);">
+        No account? Register
+      </button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-secondary" onclick="closeLoginModal()">Cancel</button>
+        <button class="btn-primary" id="btn-login-submit" onclick="submitLogin()">Login</button>
+      </div>
     </div>
   </div>
 </div>
+
+<!-- REGISTER MODAL -->
+<div class="modal-overlay hidden" id="register-modal">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <h2>Create Account</h2>
+      <button class="modal-close" onclick="closeRegisterModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="reg-username">Username</label>
+        <input type="text" id="reg-username" placeholder="Choose a username" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label for="reg-email">Email</label>
+        <input type="email" id="reg-email" placeholder="your@email.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" placeholder="Choose a password" autocomplete="new-password"/>
+      </div>
+      <p id="reg-error" style="color:var(--danger,#e53e3e);font-size:0.875rem;display:none;"></p>
+      <p id="reg-success" style="color:#16a34a;font-size:0.875rem;display:none;"></p>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;align-items:center;">
+      <button class="btn-ghost" onclick="switchToLogin()" style="font-size:13px;color:var(--accent);">
+        Already have an account? Login
+      </button>
+      <button class="btn-primary" onclick="submitRegister()">Create Account</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD / EDIT MODAL -->
 <div class="modal-overlay hidden" id="resource-modal">
   <div class="modal-box">
