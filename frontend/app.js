@@ -16,6 +16,85 @@ let currentDept = "CS";
 let currentType = null;
 
 // ============================================================
+// AUTH STATE
+// ============================================================
+let authToken    = null;  // JWT stored in memory only
+let currentUser  = null;  // { username, role }
+
+// ============================================================
+// AUTH HELPERS
+// ============================================================
+function authedFetch(url, options = {}) {
+    if (authToken) {
+        options.headers = {
+            ...options.headers,
+            "Authorization": `Bearer ${authToken}`
+        };
+    }
+    return fetch(url, options);
+}
+
+function openLoginModal() {
+    document.getElementById("login-modal").classList.remove("hidden");
+    document.getElementById("login-error").style.display = "none";
+    document.getElementById("login-username").value = "";
+    document.getElementById("login-password").value = "";
+}
+
+function closeLoginModal() {
+    document.getElementById("login-modal").classList.add("hidden");
+}
+
+async function submitLogin() {
+    const username = document.getElementById("login-username").value.trim();
+    const password = document.getElementById("login-password").value;
+    const errorEl  = document.getElementById("login-error");
+
+    const body = new URLSearchParams({ username, password });
+    try {
+        const res  = await fetch("/auth/login", { method: "POST", body });
+        const data = await res.json();
+        if (!res.ok) {
+            errorEl.textContent = data.detail || "Login failed";
+            errorEl.style.display = "block";
+            return;
+        }
+        authToken   = data.access_token;
+        const me    = await authedFetch("/auth/me");
+        currentUser = await me.json();
+        closeLoginModal();
+        updateNavAuth();
+    } catch (err) {
+        errorEl.textContent = "Could not connect to server.";
+        errorEl.style.display = "block";
+    }
+}
+
+function logout() {
+    authToken   = null;
+    currentUser = null;
+    updateNavAuth();
+}
+
+function updateNavAuth() {
+    const btnLogin  = document.getElementById("btn-login");
+    const userPill  = document.getElementById("user-pill");
+    const navAvatar = document.getElementById("nav-avatar");
+    const navName   = document.getElementById("nav-username");
+
+    if (currentUser) {
+        btnLogin.classList.add("hidden");
+        userPill.classList.remove("hidden");
+        navName.textContent   = currentUser.username;
+        navAvatar.textContent = currentUser.username[0].toUpperCase();
+    } else {
+        btnLogin.classList.remove("hidden");
+        userPill.classList.add("hidden");
+    }
+}
+
+
+// ============================================================
 // ELEMENT REFS
 // ============================================================
 const resourceModal   = document.getElementById("resource-modal");
@@ -543,6 +622,10 @@ function initTagInput() {
 // MODAL — ADD
 // ============================================================
 function openAddModal() {
+    if (!authToken) {           
+        openLoginModal();
+        return;
+    }
     editingId = null;
     modalTitle.textContent = "Add Resource";
     inputTitle.value = "";
@@ -628,7 +711,7 @@ async function saveResource() {
         : `${API_URL}/resources/${editingId}`;
 
     try {
-        await fetch(url, {
+        await authedFetch(url, {
             method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -645,7 +728,7 @@ async function saveResource() {
 // ============================================================
 async function deleteResource() {
     try {
-        await fetch(`${API_URL}/resources/${deletingId}`, { method: "DELETE" });
+        await authedFetch(`${API_URL}/resources/${deletingId}`, { method: "DELETE" });
         closeConfirmModal();
         refreshCurrentPage();
     } catch (err) {
@@ -754,6 +837,10 @@ document.getElementById("resource-modal").addEventListener("click", function(e) 
 });
 document.getElementById("confirm-modal").addEventListener("click", function(e) {
     if (e.target === this) closeConfirmModal();
+});
+
+document.getElementById("login-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeLoginModal();
 });
 
 const filterTag = document.getElementById("filter-tag");
