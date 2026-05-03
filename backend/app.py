@@ -18,6 +18,13 @@ from fastapi.responses import FileResponse
 from backend.database import engine, get_db
 from backend.models import Base, Domain, ResourceType
 from backend import models, schemas
+from backend.auth import hash_password, verify_password, create_access_token
+from backend.schemas import UserCreate, UserOut, Token
+from backend.models import User, UserRole
+from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
+from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # 1. Load .env and initialize Gemini
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -25,7 +32,7 @@ load_dotenv(os.path.join(basedir, '../.env'))
 
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
-print(f"DEBUG: API Key loaded: {api_key is not None}")
+
 
 # 2. Initialize FastAPI
 app = FastAPI()
@@ -144,11 +151,62 @@ Return ONLY raw JSON. No markdown, no backticks, no explanation.
         print(f"Error with primary model: {e}")
         return {"title": "", "summary": "Error generating summary."}
 
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
+    token_data = decode_access_token(token)
+    if token_data is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(models.User).filter(models.User.id == token_data.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+def require_role(*allowed_roles):
+    def checker(current_user: models.User = Depends(get_current_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+    return checker
+
 # ── API Routes ────────────────────────────────────────────────
 
 @app.get("/")
 async def serve_index():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+@app.post("/auth/register", response_model=UserOut, status_code=201)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+
+    existing_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Username already exists")
+    existing_email = db.query(models.User).filter(models.User.email == user.email).first()
+    if existing_email:
+        raise HTTPException(status_code=409, detail="Email already exists")
+    hashed_password = hash_password(plain=user.password)
+    new_user = models.User(
+        username=user.username,
+        email = user.email,
+        password_hash = hashed_password
+        )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.get("/auth/me", response_model=UserOut)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+@app.post("/auth/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    if not existing_user:
+        raise HTTPException(status_code=401, detail="No such username found")
+    if not verify_password(form_data.password, existing_user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    token = create_access_token({"user_id": existing_user.id, "role": existing_user.role.value})
+    return Token(access_token=token, token_type="bearer")
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
@@ -171,7 +229,7 @@ def get_tags(db: Session = Depends(get_db)):
     return db.query(models.Tag).order_by(models.Tag.name).all()
 
 @app.post("/tags", response_model=schemas.Tag)
-def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db)):
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
     existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
     if existing:
         return existing
@@ -182,7 +240,7 @@ def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db)):
     return new_tag
 
 @app.post("/resources/", response_model=schemas.Resource)
-def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db)):
+def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
     db_resource = models.Resource(
         title=resource.title,
         link=resource.link,
@@ -226,7 +284,8 @@ def get_resource(resource_id: int, db: Session = Depends(get_db)):
     return resource
 
 @app.put("/resources/{resource_id}", response_model=schemas.Resource)
-def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Session = Depends(get_db)):
+def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Session = Depends(get_db),current_user: models.User =  Depends(require_role(UserRole.owner))):
+
     resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
@@ -239,13 +298,15 @@ def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Sessi
     return resource
 
 @app.delete("/resources/{resource_id}")
-def delete_resource(resource_id: int, db: Session = Depends(get_db)):
+def delete_resource(resource_id: int, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner))):
     resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
     db.delete(resource)
     db.commit()
     return {"message": f"Resource {resource_id} deleted"}
+
+
 
 # ── Helpers ───────────────────────────────────────────────────
 

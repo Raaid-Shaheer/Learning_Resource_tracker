@@ -73,3 +73,7 @@ class UserOut(BaseModel):
 class TokenData(BaseModel):
      user_id: int
      role: UserRole
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
