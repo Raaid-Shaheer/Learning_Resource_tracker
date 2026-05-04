@@ -771,11 +771,16 @@ async function saveResource() {
         : `${API_URL}/resources/${editingId}`;
 
     try {
-        await authedFetch(url, {
+        const res = await authedFetch(url, {
             method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
         });
+        if (!res.ok) {
+            const data = await res.json();
+            alert(data.detail || "Failed to save resource.");
+            return;
+        }
         closeModal();
         refreshCurrentPage();
     } catch (err) {

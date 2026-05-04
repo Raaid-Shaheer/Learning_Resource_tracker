@@ -241,6 +241,11 @@ def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db),current_use
 
 @app.post("/resources/", response_model=schemas.Resource)
 def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
+    
+    existing = db.query(models.Resource).filter(models.Resource.link == resource.link).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="A resource with this link already exists.")
+    
     db_resource = models.Resource(
         title=resource.title,
         link=resource.link,
