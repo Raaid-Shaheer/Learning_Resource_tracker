@@ -778,7 +778,14 @@ async function saveResource() {
         });
         if (!res.ok) {
             const data = await res.json();
-            alert(data.detail || "Failed to save resource.");
+            const statusEl = document.getElementById("summarize-status");
+            statusEl.style.display = "block";
+            statusEl.style.color = "var(--danger, #e53e3e)";
+            statusEl.innerText = "❌ " + (data.detail || "Failed to save resource.");
+            setTimeout(() => { 
+                statusEl.style.display = "none"; 
+                statusEl.style.color = "var(--accent)";
+            }, 4000);
             return;
         }
         closeModal();
