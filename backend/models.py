@@ -29,10 +29,9 @@ class UserRole(str,enum.Enum):
     viewer = "viewer"
 
 class ResourceStatus(str, enum.Enum):
-    # TODO: add three values — not_started, in_progress, complete
-    NOT_STARTED = "not_started"
-    IN_PROGRESS = "in_progress"
-    COMPLETE = "complete"
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETE    = "COMPLETE"
 
 # ── Association Table ─────────────────────────────────────────
 # this is NOT a class — it's a plain Table object
@@ -73,7 +72,7 @@ class Resource(Base):
     domain        = Column(Enum(Domain), nullable=False)        
     resource_type = Column(Enum(ResourceType), nullable=False)
     description   = Column(Text)
-    status = Column(Enum(ResourceStatus),default=ResourceStatus.NOT_STARTED,nullable=False)
+    status = Column(Enum(ResourceStatus), default=ResourceStatus.NOT_STARTED, nullable=False)
 
     # SQLAlchemy will automatically join through the resource_tags table for you
     tags = relationship("Tag", secondary=resource_tags, back_populates="resources")
