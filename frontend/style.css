@@ -475,6 +475,12 @@ body {
 .badge-web  { background: var(--web-light); color: #1d4ed8; }
 .badge-gh   { background: var(--gh-light);  color: #334155; }
 .badge-dept { background: #f0f9ff; color: #0369a1; }
+.badge-dept { background: #f0f9ff; color: #0369a1; }
+
+/* Status badges */
+.badge-status-ns   { background: #f1f5f9; color: #64748b; }   /* grey  — not started */
+.badge-status-ip   { background: #fffbeb; color: #b45309; }   /* amber — in progress */
+.badge-status-done { background: #f0fdf4; color: #16a34a; }   /* green — complete    */
 
 .res-title-link {
   display: block;

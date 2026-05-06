@@ -15,12 +15,11 @@ from sqlalchemy.orm import Session
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from backend.database import engine, get_db
-from backend.models import Base, Domain, ResourceType
 from backend import models, schemas
+from backend.database import engine, get_db
+from backend.models import Base, Domain, ResourceType,ResourceStatus,User, UserRole
 from backend.auth import hash_password, verify_password, create_access_token
 from backend.schemas import UserCreate, UserOut, Token
-from backend.models import User, UserRole
 from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -252,6 +251,7 @@ def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_
         domain=resource.domain,
         resource_type=resource.resource_type,
         description=resource.description,
+        status=resource.status
     )
     if resource.tags:
         db_resource.tags = _resolve_tags(resource.tags, db)
@@ -266,6 +266,7 @@ def get_resources(
     domain: Domain | None = None,
     resource_type: ResourceType | None = None,
     tag: str | None = None,
+    status: ResourceStatus | None = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -277,6 +278,8 @@ def get_resources(
         query = query.filter(models.Resource.domain == domain)
     if resource_type:
         query = query.filter(models.Resource.resource_type == resource_type)
+    if status:
+        query = query.filter(models.Resource.status == status)
     if tag:
         query = query.filter(models.Resource.tags.any(models.Tag.name == tag))
     return query.offset(skip).limit(limit).all()

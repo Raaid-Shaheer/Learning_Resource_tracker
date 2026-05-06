@@ -280,7 +280,11 @@ function buildResourceItem(resource) {
             <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
                 ${typeLabel(resource.resource_type)}
             </span>
+
             <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.domain)}</span>
+
+            <span class="res-type-badge ${statusBadgeClass(resource.status)}" style="margin-left:6px;">${statusLabel(resource.status)}</span>
+
         </div>
         <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
         <p class="res-desc">${resource.description || "No description provided."}</p>
@@ -540,7 +544,7 @@ async function loadDeptTypeResources(dept, type, chipEl) {
     ]);
 
     try {
-        // FIX: was ?department= — backend expects ?domain=
+        
         const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
 
@@ -574,12 +578,13 @@ async function loadAllResources() {
     const dept   = filterDept  ? filterDept.value  : "";
     const type   = filterType  ? filterType.value  : "";
     const tag    = document.getElementById("filter-tag")?.value || "";
+    const status   = document.getElementById("filter-status")?.value || "";
 
     if (search) params.append("title", search);
-    // FIX: was "department" — backend expects "domain"
     if (dept)   params.append("domain", dept);
     if (type)   params.append("resource_type", type);
     if (tag)    params.append("tag", tag);
+    if (status)    params.append("status", status);
 
     try {
         const response  = await fetch(`${API_URL}/resources?${params}`);
@@ -874,6 +879,23 @@ function refreshCurrentPage() {
 }
 
 // ============================================================
+// STATUS
+// ============================================================
+
+function statusBadgeClass(status) {
+    const map = {"not_started": "badge-status-ns","in_progress": "badge-status-ip","complete": "badge-status-done"}
+
+    return map[status] 
+}
+
+function statusLabel(status) {
+    
+    const map = {"not_started": "Not Started","in_progress": "In Progress","complete": "Complete"}
+
+    return map[status]
+}
+
+// ============================================================
 // EVENT LISTENERS
 // ============================================================
 btnSave.addEventListener("click", saveResource);
@@ -921,6 +943,9 @@ if (filterTag) filterTag.addEventListener("change", loadAllResources);
 document.getElementById("register-modal").addEventListener("click", function(e) {
     if (e.target === this) closeRegisterModal();
 });
+
+const filterStatus = document.getElementById("filter-status");
+if (filterStatus) filterStatus.addEventListener("change", loadAllResources);
 
 // ============================================================
 // INIT

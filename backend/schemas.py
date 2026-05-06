@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from .models import Domain, ResourceType,UserRole
+from .models import Domain, ResourceType,UserRole,ResourceStatus
 from datetime import datetime  
 
 
@@ -24,7 +24,8 @@ class ResourceCreate(BaseModel):
     domain:        Domain          
     resource_type: ResourceType
     description:   str | None = None
-    tags:          list[str] = []      
+    tags:          list[str] = []  
+    status:        ResourceStatus = ResourceStatus.NOT_STARTED  
 
 class Resource(BaseModel):
     # this is the OUTPUT schema — what the API sends back
@@ -37,6 +38,7 @@ class Resource(BaseModel):
     resource_type: ResourceType
     description:   str | None = None
     tags:          list[Tag] = []           # ← list of Tag objects on the way out
+    status:        ResourceStatus
 
     class Config:
         from_attributes = True
@@ -50,6 +52,7 @@ class ResourceUpdate(BaseModel):
     resource_type: ResourceType | None = None
     description:   str | None = None
     tags:          list[str] | None = None  # ← None = untouched, [] = cleared
+    status:         ResourceStatus | None = None
 
 
 # ── User schemas ──────────────────────────────────────────
