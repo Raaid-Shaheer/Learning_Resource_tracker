@@ -884,18 +884,18 @@ function refreshCurrentPage() {
 
 function statusBadgeClass(status) {
     const map = {
-        "NOT_STARTED": "badge-status-ns",
-        "IN_PROGRESS": "badge-status-ip",
-        "COMPLETE":    "badge-status-done"
+        "not_started": "badge-status-ns",
+        "in_progress": "badge-status-ip",
+        "complete":    "badge-status-done"
     };
     return map[status];
 }
 
 function statusLabel(status) {
     const map = {
-        "NOT_STARTED": "Not Started",
-        "IN_PROGRESS": "In Progress",
-        "COMPLETE":    "Complete"
+        "not_started": "Not Started",
+        "in_progress": "In Progress",
+        "complete":    "Complete"
     };
     return map[status];
 }
