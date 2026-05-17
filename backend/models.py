@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, Table, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, Enum, Table, ForeignKey, DateTime, PrimaryKeyConstraint,func
 from sqlalchemy.orm import relationship
 from .database import Base
 import enum
@@ -24,9 +24,9 @@ class UserRole(str, enum.Enum):
     viewer      = "viewer"
 
 class ResourceStatus(str, enum.Enum):
-    NOT_STARTED = "not_started"   
-    IN_PROGRESS = "in_progress"
-    COMPLETE    = "complete"
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETE    = "COMPLETE"
 
 resource_tags = Table(
     "resource_tags",
@@ -60,3 +60,29 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role          = Column(Enum(UserRole), default=UserRole.viewer)
     created_at    = Column(DateTime(timezone=True), default=utcnow)
+
+class UserResourceStatus(Base):
+    __tablename__ = "user_resource_status"
+
+    user_id     = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    resource_id = Column(Integer, ForeignKey("resources.id"), primary_key=True)
+    status      = Column(Enum(ResourceStatus), default=ResourceStatus.NOT_STARTED)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "resource_id"),
+    )
+
+
+class ApplicationStatus(str, enum.Enum):
+    PENDING  = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+class ContributorApplication(Base):
+    __tablename__ = "contributor_applications"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"))
+    message    = Column(Text)
+    status     = Column(Enum(ApplicationStatus), default=ApplicationStatus.PENDING)
+    created_at = Column(DateTime, default=func.now())

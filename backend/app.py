@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from google import genai  
 import json
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -17,9 +17,9 @@ from fastapi.responses import FileResponse
 
 from backend import models, schemas
 from backend.database import engine, get_db
-from backend.models import Base, Domain, ResourceType,ResourceStatus,User, UserRole
+from backend.models import Base, Domain, ResourceType,ResourceStatus,User, UserRole,ApplicationStatus, ContributorApplication
 from backend.auth import hash_password, verify_password, create_access_token
-from backend.schemas import UserCreate, UserOut, Token
+from backend.schemas import UserCreate, UserOut, Token, ApplicationCreate, ApplicationOut, ApplicationCreated
 from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -197,6 +197,16 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
+@app.get("/auth/me/statuses")
+def get_my_statuses(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+   
+    rows = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id).all()
+    
+    return {str(row.resource_id): row.status for row in rows}
+
 @app.post("/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.username == form_data.username).first()
@@ -206,6 +216,84 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Incorrect password")
     token = create_access_token({"user_id": existing_user.id, "role": existing_user.role.value})
     return Token(access_token=token, token_type="bearer")
+
+@app.post("/auth/apply", response_model=ApplicationCreated)
+def apply_to_contribute(
+    body: ApplicationCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    new_application = models.ContributorApplication(
+        user_id = current_user.id,
+        message = body.message
+    )
+    db.add(new_application)
+    db.commit()
+    db.refresh(new_application)
+    return new_application
+
+@app.get("/auth/applications", response_model=list[ApplicationOut])
+def list_applications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(models.UserRole.owner))
+):
+    applications = db.query(models.ContributorApplication).filter(
+        models.ContributorApplication.status == models.ApplicationStatus.PENDING 
+    ).all()
+
+    for app in applications:
+        user = db.query(models.User).filter(
+            models.User.id == app.user_id 
+        ).first()
+        app.username = user.username  if user else "Unknown"
+    return applications
+
+@app.put("/auth/applications/{id}/approve", response_model=ApplicationOut)
+def approve_application(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(models.UserRole.owner))
+):
+    
+    application = db.query(models.ContributorApplication).filter(
+    models.ContributorApplication.id == id).first()
+
+    if not application:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found")
+
+    application.status = models.ApplicationStatus.APPROVED
+
+    applicant_user = db.query(models.User).filter(
+        models.User.id == application.user_id
+    ).first()
+    applicant_user.role = models.UserRole.contributor
+
+    db.commit()
+    db.refresh(application)
+    return application
+
+
+
+@app.put("/auth/applications/{id}/reject", response_model=ApplicationOut)
+def reject_application(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(models.UserRole.owner))
+):
+    application = db.query(models.ContributorApplication).filter(
+    models.ContributorApplication.id == id).first()
+
+    if not application:
+        raise HTTPException(status_code=404, detail=f"Application {id} not found")
+
+    application.status = models.ApplicationStatus.REJECTED
+
+    db.commit()
+    db.refresh(application)
+    return application
+
+
+
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
@@ -314,6 +402,41 @@ def delete_resource(resource_id: int, db: Session = Depends(get_db),current_user
     db.commit()
     return {"message": f"Resource {resource_id} deleted"}
 
+@app.post("/resources/{id}/status")
+def set_resource_status(
+    id: int,
+    body: schemas.StatusUpdate = Body(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    existing = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id,models.UserResourceStatus.resource_id== id).first()
+
+    if existing:
+        existing.status = body.status
+    else:
+        new_status = models.UserResourceStatus(
+            user_id = current_user.id,
+            resource_id = id,
+            status = body.status
+        )
+        db.add(new_status)
+
+    db.commit()
+    return {"message": "Status updated"}
+
+@app.get("/resources/{id}/status")
+def get_resource_status(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # TODO: query UserResourceStatus for this user + resource pairing
+    existing = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id,models.UserResourceStatus.resource_id== id).first()
+
+    if not existing:
+        return {"status": models.ResourceStatus.NOT_STARTED}
+
+    return {"status": existing.status}
 
 # ── Helpers ───────────────────────────────────────────────────
 
@@ -330,6 +453,7 @@ def _resolve_tags(tag_names: list[str], db: Session) -> list[models.Tag]:
             db.flush()
         tags.append(tag)
     return tags
+
 
 # ── Static Files ──────────────────────────────────────────────
 # MUST be last — mounted at /static so it never intercepts API routes.

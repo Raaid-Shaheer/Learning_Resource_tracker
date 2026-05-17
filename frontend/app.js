@@ -10,16 +10,16 @@ const SUMMARIZER_API = "/api/summarize";
 let editingId   = null;
 let deletingId  = null;
 let currentPage = "home";
-let selectedTags  = [];   // tags currently selected in the modal
-let allTags       = [];   // all tags fetched from GET /tags
+let selectedTags  = [];
+let allTags       = [];
 let currentDept = "CS";
 let currentType = null;
 
 // ============================================================
 // AUTH STATE
 // ============================================================
-let authToken    = null;  // JWT stored in memory only
-let currentUser  = null;  // { username, role }
+let authToken    = null;
+let currentUser  = null;
 
 // ============================================================
 // AUTH HELPERS
@@ -98,6 +98,7 @@ async function submitRegister() {
         errorEl.style.display = "block";
     }
 }
+
 function closeLoginModal() {
     document.getElementById("login-modal").classList.add("hidden");
 }
@@ -134,22 +135,169 @@ function logout() {
 }
 
 function updateNavAuth() {
-    const btnLogin  = document.getElementById("btn-login");
-    const userPill  = document.getElementById("user-pill");
-    const navAvatar = document.getElementById("nav-avatar");
-    const navName   = document.getElementById("nav-username");
+    const btnLogin     = document.getElementById("btn-login");
+    const userPill     = document.getElementById("user-pill");
+    const navAvatar    = document.getElementById("nav-avatar");
+    const navName      = document.getElementById("nav-username");
+    const btnAdd       = document.getElementById("btn-add-resource");
+    const sidebarAdd   = document.getElementById("sidebar-add-resource");
+    const btnApply     = document.getElementById("btn-apply");
+    const btnDashboard = document.getElementById("btn-dashboard");
 
     if (currentUser) {
         btnLogin.classList.add("hidden");
         userPill.classList.remove("hidden");
         navName.textContent   = currentUser.username;
         navAvatar.textContent = currentUser.username[0].toUpperCase();
+
+        const isOwner       = currentUser.role === "owner";
+        const isContributor = currentUser.role === "contributor";
+        const isViewer      = currentUser.role === "viewer";
+        const canAdd        = isOwner || isContributor;
+
+        if (btnAdd)     canAdd ? btnAdd.classList.remove("hidden")     : btnAdd.classList.add("hidden");
+        if (sidebarAdd) canAdd ? sidebarAdd.classList.remove("hidden") : sidebarAdd.classList.add("hidden");
+        if (btnApply) isViewer ? btnApply.classList.remove("hidden") : btnApply.classList.add("hidden");
+        if (btnDashboard) isOwner ? btnDashboard.classList.remove("hidden") : btnDashboard.classList.add("hidden");
+
     } else {
         btnLogin.classList.remove("hidden");
         userPill.classList.add("hidden");
+        if (btnAdd)       btnAdd.classList.add("hidden");
+        if (sidebarAdd)   sidebarAdd.classList.add("hidden");
+        if (btnApply)     btnApply.classList.add("hidden");
+        if (btnDashboard) btnDashboard.classList.add("hidden");
     }
 }
 
+// ============================================================
+// APPLY MODAL
+// ============================================================
+function openApplyModal() {
+    document.getElementById("apply-modal").classList.remove("hidden");
+    document.getElementById("apply-message").value = "";
+    document.getElementById("apply-error").style.display = "none";
+}
+
+function closeApplyModal() {
+    document.getElementById("apply-modal").classList.add("hidden");
+}
+
+async function submitApply() {
+    const message   = document.getElementById("apply-message").value.trim();
+    const errorEl   = document.getElementById("apply-error");
+    const successEl = document.getElementById("apply-success");
+
+    if (!message) {
+        errorEl.textContent  = "Message cannot be empty.";
+        errorEl.style.display = "block";
+        return;
+    }
+
+    try {
+        const res  = await authedFetch("/auth/apply", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ message })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorEl.textContent  = data.detail || "Application failed.";
+            errorEl.style.display = "block";
+            return;
+        }
+
+        closeApplyModal();
+        successEl.textContent  = "Application submitted!";
+        successEl.style.display = "block";
+        setTimeout(() => { successEl.style.display = "none"; }, 3000);
+
+    } catch (err) {
+        errorEl.textContent  = "Could not connect to server.";
+        errorEl.style.display = "block";
+    }
+}
+
+// ============================================================
+// OWNER DASHBOARD
+// ============================================================
+async function openDashboard() {
+    document.getElementById("dashboard-modal").classList.remove("hidden");
+    const listEl = document.getElementById("applications-list");
+    listEl.innerHTML = `<p style="color:var(--text-secondary)">Loading...</p>`;
+
+    try {
+        const res  = await authedFetch("/auth/applications");
+        const apps = await res.json();
+
+        if (!res.ok) {
+            listEl.innerHTML = `<p style="color:var(--danger)">Failed to load applications.</p>`;
+            return;
+        }
+
+        if (apps.length === 0) {
+            listEl.innerHTML = `<p style="color:var(--text-secondary)">No pending applications.</p>`;
+            return;
+        }
+
+        listEl.innerHTML = "";
+        apps.forEach(app => {
+            const card = document.createElement("div");
+            card.style.cssText = "border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;";
+            card.innerHTML = `
+                <div style="font-weight:600;margin-bottom:4px;">${app.username}</div>
+                <div style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:10px;">${app.message}</div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn-primary" onclick="approveApplication(${app.id}, this)">Approve</button>
+                    <button class="btn-danger"  onclick="rejectApplication(${app.id}, this)">Reject</button>
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+
+    } catch (err) {
+        listEl.innerHTML = `<p style="color:var(--danger)">Could not connect to server.</p>`;
+    }
+}
+
+function closeDashboard() {
+    document.getElementById("dashboard-modal").classList.add("hidden");
+}
+
+async function approveApplication(id, btn) {
+    btn.disabled = true;
+    btn.textContent = "Approving...";
+    try {
+        const res = await authedFetch(`/auth/applications/${id}/approve`, { method: "PUT" });
+        if (res.ok) {
+            btn.closest("div[style]").innerHTML = `<span style="color:var(--success,#16a34a);font-weight:600;">✅ Approved</span>`;
+        } else {
+            btn.textContent = "Approve";
+            btn.disabled = false;
+        }
+    } catch (err) {
+        btn.textContent = "Approve";
+        btn.disabled = false;
+    }
+}
+
+async function rejectApplication(id, btn) {
+    btn.disabled = true;
+    btn.textContent = "Rejecting...";
+    try {
+        const res = await authedFetch(`/auth/applications/${id}/reject`, { method: "PUT" });
+        if (res.ok) {
+            btn.closest("div[style]").innerHTML = `<span style="color:var(--danger,#e53e3e);font-weight:600;">❌ Rejected</span>`;
+        } else {
+            btn.textContent = "Reject";
+            btn.disabled = false;
+        }
+    } catch (err) {
+        btn.textContent = "Reject";
+        btn.disabled = false;
+    }
+}
 
 // ============================================================
 // ELEMENT REFS
@@ -171,9 +319,20 @@ const filterType      = document.getElementById("filter-type");
 const globalSearch    = document.getElementById("global-search");
 
 // ============================================================
+// GLOBAL DROPDOWN MANAGER
+// One single document listener — closes all dropdowns on outside click
+// ============================================================
+document.addEventListener("click", () => {
+    document.querySelectorAll(".status-options").forEach(el => el.classList.add("hidden"));
+});
+
+function closeAllStatusDropdowns() {
+    document.querySelectorAll(".status-options").forEach(el => el.classList.add("hidden"));
+}
+
+// ============================================================
 // HELPERS — THUMBNAIL
 // ============================================================
-
 function getYouTubeId(url) {
     if (!url) return null;
     const patterns = [
@@ -220,9 +379,8 @@ function filterByTag(tagName) {
             filterTag.value = tagName;
             loadAllResources();
         }
-    }, 50);   
+    }, 50);
 }
-
 
 // ============================================================
 // HELPERS — TYPE STYLING
@@ -257,10 +415,93 @@ function deptLabel(dept) {
     return map[dept] || dept;
 }
 
+function applyStatusSelectClass(el, status) {
+    el.classList.remove("status-ns", "status-ip", "status-done");
+    const map = {
+        "NOT_STARTED": "status-ns",
+        "IN_PROGRESS":  "status-ip",
+        "COMPLETE":     "status-done"
+    };
+    el.classList.add(map[status] || "status-ns");
+}
+
+// ============================================================
+// STATUS DROPDOWN
+// optionsList is appended to document.body with position:fixed
+// so it escapes all card stacking contexts completely
+// ============================================================
+function buildStatusDropdown(resourceId, userStatus, onSelect) {
+    const statuses = [
+        { value: "NOT_STARTED", label: "Not Started", cls: "status-ns" },
+        { value: "IN_PROGRESS", label: "In Progress", cls: "status-ip" },
+        { value: "COMPLETE",    label: "Complete",    cls: "status-done" }
+    ];
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "status-dropdown";
+
+    const trigger = document.createElement("button");
+    trigger.className = "status-dropdown-trigger";
+    trigger.textContent = statusLabel(userStatus);
+    applyStatusSelectClass(trigger, userStatus);
+
+    // optionsList lives on body — completely outside card DOM
+    const optionsList = document.createElement("div");
+    optionsList.className = "status-options hidden";
+    document.body.appendChild(optionsList);
+
+    statuses.forEach(s => {
+        const opt = document.createElement("div");
+        opt.className = `status-option ${s.cls}`;
+        opt.textContent = s.label;
+        opt.addEventListener("click", (e) => {
+            e.stopPropagation();
+            trigger.textContent = s.label;
+            applyStatusSelectClass(trigger, s.value);
+            optionsList.classList.add("hidden");
+            onSelect(s.value);
+        });
+        optionsList.appendChild(opt);
+    });
+
+    trigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isHidden = optionsList.classList.contains("hidden");
+
+        // close all dropdowns first
+        closeAllStatusDropdowns();
+
+        if (isHidden) {
+            // position the list under the trigger using fixed coords
+            const rect = trigger.getBoundingClientRect();
+            optionsList.style.top   = (rect.bottom + 4) + "px";
+            optionsList.style.left  = "auto";
+            optionsList.style.right = (window.innerWidth - rect.right) + "px";
+            optionsList.classList.remove("hidden");
+        }
+    });
+
+    wrapper.appendChild(trigger);
+    return wrapper;
+}
+
 // ============================================================
 // BUILD RESOURCE ITEM
 // ============================================================
-function buildResourceItem(resource) {
+async function updateStatus(resourceId, newStatus) {
+    const response = await authedFetch(`${API_URL}/resources/${resourceId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+    });
+    if (!response.ok) {
+        console.error("Failed to update status");
+    }
+}
+
+function buildResourceItem(resource, statusMap = {}) {
+    const userStatus = statusMap[String(resource.id)] || "NOT_STARTED";
+
     const item = document.createElement("div");
     item.className = "resource-item";
 
@@ -269,22 +510,19 @@ function buildResourceItem(resource) {
     const body = document.createElement("div");
     body.className = "res-body";
     const tagHTML = resource.tags && resource.tags.length
-    ? `<div class="res-tags">${resource.tags.map(t =>
-        `<span class="tag-chip-card tag-chip-clickable" 
-               onclick="filterByTag('${t.name}')">${t.name}</span>`
-      ).join("")}</div>`
-    : "";
+        ? `<div class="res-tags">${resource.tags.map(t =>
+            `<span class="tag-chip-card tag-chip-clickable" 
+                   onclick="filterByTag('${t.name}')">${t.name}</span>`
+          ).join("")}</div>`
+        : "";
 
     body.innerHTML = `
         <div>
             <span class="res-type-badge ${typeBadgeClass(resource.resource_type)}">
                 ${typeLabel(resource.resource_type)}
             </span>
-
             <span class="res-type-badge badge-dept" style="margin-left:6px;">${deptLabel(resource.domain)}</span>
-
-            <span class="res-type-badge ${statusBadgeClass(resource.status)}" style="margin-left:6px;">${statusLabel(resource.status)}</span>
-
+            <span class="res-type-badge ${statusBadgeClass(userStatus)}" style="margin-left:6px;">${statusLabel(userStatus)}</span>
         </div>
         <a class="res-title-link" href="${resource.link}" target="_blank" rel="noopener">${resource.title}</a>
         <p class="res-desc">${resource.description || "No description provided."}</p>
@@ -322,6 +560,13 @@ function buildResourceItem(resource) {
         editRow.appendChild(delBtn);
     }
 
+    if (currentUser) {
+        const dropdown = buildStatusDropdown(resource.id, userStatus, (newStatus) => {
+            updateStatus(resource.id, newStatus);
+        });
+        editRow.appendChild(dropdown);
+    }
+
     actions.appendChild(openBtn);
     actions.appendChild(editRow);
     item.appendChild(actions);
@@ -333,6 +578,9 @@ function buildResourceItem(resource) {
 // NAVIGATION
 // ============================================================
 function navigate(page, param = null) {
+    // clean up any body-appended dropdowns before re-rendering
+    document.querySelectorAll(".status-options").forEach(el => el.remove());
+
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     document.querySelectorAll(".sidebar-link").forEach(l => l.classList.remove("active"));
 
@@ -444,7 +692,7 @@ async function loadHomeData() {
             li.innerHTML = `<div class="legend-dot" style="background:${dot}"></div>${label} <strong>${typeCounts[key]}</strong>`;
             legendEl.appendChild(li);
         });
-                // Count tag usage across all resources
+
         const tagCounts = {};
         resources.forEach(r => {
             (r.tags || []).forEach(t => {
@@ -452,10 +700,7 @@ async function loadHomeData() {
             });
         });
 
-        const topTags = Object.entries(tagCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3);
-
+        const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
         const topTagsEl = document.getElementById("top-tags-list");
         if (topTagsEl) {
             topTagsEl.innerHTML = topTags.length
@@ -476,7 +721,6 @@ async function loadHomeData() {
 // ============================================================
 async function loadDeptPage(dept) {
     try {
-        // FIX: was ?department= — backend expects ?domain=
         const response  = await fetch(`${API_URL}/resources?domain=${dept}`);
         const resources = await response.json();
 
@@ -533,6 +777,7 @@ async function loadDeptPage(dept) {
 }
 
 async function loadDeptTypeResources(dept, type, chipEl) {
+    document.querySelectorAll(".status-options").forEach(el => el.remove());
     document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("active"));
     chipEl.classList.add("active");
     currentType = type;
@@ -543,8 +788,13 @@ async function loadDeptTypeResources(dept, type, chipEl) {
         { label: typeLabel(type) }
     ]);
 
+    let statusMap = {};
+    if (authToken) {
+        const statusRes = await authedFetch(`${API_URL}/auth/me/statuses`, { method: "GET" });
+        statusMap = await statusRes.json();
+    }
+
     try {
-        
         const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
 
@@ -559,7 +809,7 @@ async function loadDeptTypeResources(dept, type, chipEl) {
         if (resources.length === 0) {
             list.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No ${type} resources in ${deptLabel(dept)} yet.</div>`;
         } else {
-            resources.forEach(r => list.appendChild(buildResourceItem(r)));
+            resources.forEach(r => list.appendChild(buildResourceItem(r, statusMap)));
         }
 
         section.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -573,18 +823,26 @@ async function loadDeptTypeResources(dept, type, chipEl) {
 // ALL RESOURCES PAGE
 // ============================================================
 async function loadAllResources() {
+    document.querySelectorAll(".status-options").forEach(el => el.remove());
+
     const params = new URLSearchParams();
     const search = searchInput ? searchInput.value.trim() : "";
     const dept   = filterDept  ? filterDept.value  : "";
     const type   = filterType  ? filterType.value  : "";
     const tag    = document.getElementById("filter-tag")?.value || "";
-    const status   = document.getElementById("filter-status")?.value || "";
+    const status = document.getElementById("filter-status")?.value || "";
 
     if (search) params.append("title", search);
     if (dept)   params.append("domain", dept);
     if (type)   params.append("resource_type", type);
     if (tag)    params.append("tag", tag);
-    if (status)    params.append("status", status);
+    if (status) params.append("status", status);
+
+    let statusMap = {};
+    if (authToken) {
+        const response = await authedFetch(`${API_URL}/auth/me/statuses`, { method: "GET" });
+        statusMap = await response.json();
+    }
 
     try {
         const response  = await fetch(`${API_URL}/resources?${params}`);
@@ -594,7 +852,7 @@ async function loadAllResources() {
         if (resources.length === 0) {
             container.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">search_off</span>No resources found.</div>`;
         } else {
-            resources.forEach(r => container.appendChild(buildResourceItem(r)));
+            resources.forEach(r => container.appendChild(buildResourceItem(r, statusMap)));
         }
     } catch (err) {
         console.error("Failed to load resources:", err);
@@ -610,7 +868,6 @@ async function loadAllTags() {
         allTags = await response.json();
         renderTagPresets();
 
-        // populate the filter dropdown
         const filterTag = document.getElementById("filter-tag");
         if (filterTag) {
             filterTag.innerHTML = `<option value="">All Tags</option>`;
@@ -687,7 +944,7 @@ function initTagInput() {
 // MODAL — ADD
 // ============================================================
 function openAddModal() {
-    if (!authToken) {           
+    if (!authToken) {
         openLoginModal();
         return;
     }
@@ -787,8 +1044,8 @@ async function saveResource() {
             statusEl.style.display = "block";
             statusEl.style.color = "var(--danger, #e53e3e)";
             statusEl.innerText = "❌ " + (data.detail || "Failed to save resource.");
-            setTimeout(() => { 
-                statusEl.style.display = "none"; 
+            setTimeout(() => {
+                statusEl.style.display = "none";
                 statusEl.style.color = "var(--accent)";
             }, 4000);
             return;
@@ -841,10 +1098,8 @@ async function autoSummarize() {
         const data = await response.json();
 
         if (data.success) {
-            // Always fill description
             inputDesc.value = data.summary || "";
 
-            // Fill title — ask first if field already has content
             if (data.title) {
                 if (inputTitle.value.trim() === "") {
                     inputTitle.value = data.title;
@@ -881,23 +1136,22 @@ function refreshCurrentPage() {
 // ============================================================
 // STATUS
 // ============================================================
-
 function statusBadgeClass(status) {
     const map = {
-        "not_started": "badge-status-ns",
-        "in_progress": "badge-status-ip",
-        "complete":    "badge-status-done"
+        "NOT_STARTED": "badge-status-ns",
+        "IN_PROGRESS": "badge-status-ip",
+        "COMPLETE":    "badge-status-done"
     };
-    return map[status];
+    return map[status] || "badge-status-ns";
 }
 
 function statusLabel(status) {
     const map = {
-        "not_started": "Not Started",
-        "in_progress": "In Progress",
-        "complete":    "Complete"
+        "NOT_STARTED": "Not Started",
+        "IN_PROGRESS": "In Progress",
+        "COMPLETE":    "Complete"
     };
-    return map[status];
+    return map[status] || "Not Started";
 }
 
 // ============================================================
@@ -937,7 +1191,6 @@ document.getElementById("resource-modal").addEventListener("click", function(e) 
 document.getElementById("confirm-modal").addEventListener("click", function(e) {
     if (e.target === this) closeConfirmModal();
 });
-
 document.getElementById("login-modal").addEventListener("click", function(e) {
     if (e.target === this) closeLoginModal();
 });
@@ -951,6 +1204,14 @@ document.getElementById("register-modal").addEventListener("click", function(e) 
 
 const filterStatus = document.getElementById("filter-status");
 if (filterStatus) filterStatus.addEventListener("change", loadAllResources);
+
+document.getElementById("apply-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeApplyModal();
+});
+
+document.getElementById("dashboard-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeDashboard();
+});
 
 // ============================================================
 // INIT

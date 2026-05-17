@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from .models import Domain, ResourceType,UserRole,ResourceStatus
+from .models import Domain, ResourceType,UserRole,ResourceStatus, ContributorApplication
 from datetime import datetime  
 
 
@@ -80,3 +80,33 @@ class TokenData(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+# ── User schemas ──────────────────────────────────────────
+class StatusUpdate(BaseModel):
+    status: ResourceStatus
+    model_config = ConfigDict(use_enum_values=True)
+
+
+# ── Contributor schemas ──────────────────────────────────────────
+
+class ApplicationCreate(BaseModel):
+    message : str
+
+class ApplicationOut(BaseModel):
+    
+    id: int
+    user_id : int
+    username: str
+    message: str
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ApplicationCreated(BaseModel):
+    id: int
+    message: str
+    status: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

@@ -31,7 +31,8 @@
     </div>
   </div>
   <div class="nav-right">
-    <button class="btn-add-nav" onclick="openAddModal()">
+    <!-- visible to owner + contributor only -->
+    <button id="btn-add-resource" class="btn-add-nav hidden" onclick="openAddModal()">
       <span class="material-symbols-outlined">add</span>
       Add Resource
     </button>
@@ -64,11 +65,22 @@
       <span class="material-symbols-outlined">library_books</span>
       All Resources
     </a>
-    <div class="sidebar-divider"></div>
-    <a class="sidebar-link" onclick="openAddModal()">
-      <span class="material-symbols-outlined">add_circle</span>
-      Add Resource
-    </a>
+    <div class="sidebar-divider">
+      <!-- visible to owner + contributor only -->
+      <a class="sidebar-link hidden" id="sidebar-add-resource" onclick="openAddModal()">
+        <span class="material-symbols-outlined">add_circle</span>
+        Add Resource
+      </a>
+      <!-- visible to viewer only -->
+      <button id="btn-apply" class="hidden" onclick="openApplyModal()">
+        Apply to Contribute
+      </button>
+      <!-- visible to owner only -->
+      <button id="btn-dashboard" class="hidden" onclick="openDashboard()">
+        <span class="material-symbols-outlined">admin_panel_settings</span>
+        Pending Applications
+      </button>
+    </div>
   </nav>
   <div class="sidebar-footer">🌱 Keep growing</div>
 </aside>
@@ -196,8 +208,8 @@
             <div class="stat-card-label">Latest Addition</div>
           </div>
         </div>
+      </div>
 
-  
       <div class="breakdown-card">
         <div class="breakdown-title">Resource Type Breakdown</div>
         <div class="breakdown-bars" id="breakdown-bars"></div>
@@ -245,20 +257,21 @@
           <option value="Github Repo">GitHub Repo</option>
         </select>
         <select id="filter-tag" class="filter-select">
-        <option value="">All Tags</option>
-      </select>
-      <select id="filter-status" class="filter-select">
-        <option value="">All Statuses</option>
-        <option value="not_started">Not Started</option>
-        <option value="in_progress">In Progress</option>
-        <option value="complete">Complete</option>
-      </select>
+          <option value="">All Tags</option>
+        </select>
+        <select id="filter-status" class="filter-select">
+          <option value="">All Statuses</option>
+          <option value="NOT_STARTED">Not Started</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="COMPLETE">Complete</option>
+        </select>
       </div>
     </div>
     <div id="resources-container" class="resource-list"></div>
   </div>
 
 </main>
+
 <!-- LOGIN MODAL -->
 <div class="modal-overlay hidden" id="login-modal">
   <div class="modal-box modal-sm">
@@ -286,6 +299,58 @@
       <div style="display:flex;gap:10px;">
         <button class="btn-secondary" onclick="closeLoginModal()">Cancel</button>
         <button class="btn-primary" id="btn-login-submit" onclick="submitLogin()">Login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTRIBUTOR APPLICATION MODAL -->
+<div id="apply-modal" class="modal-overlay hidden">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="apply-modal-icon">
+          <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">edit_note</span>
+        </div>
+        <h2>Apply to Contribute</h2>
+      </div>
+      <button class="modal-close" onclick="closeApplyModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;">
+        Tell us why you'd like to become a contributor. The owner will review your application.
+      </p>
+      <div class="form-group">
+        <label for="apply-message">Your message</label>
+        <textarea id="apply-message" placeholder="e.g. I'd love to help add resources for embedded systems..." rows="5"></textarea>
+      </div>
+      <p id="apply-error" style="display:none;color:#dc2626;font-size:13px;font-weight:500;"></p>
+      <p id="apply-success" style="display:none;color:#16a34a;font-size:13px;font-weight:500;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeApplyModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitApply()">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">send</span>
+        Submit Application
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- OWNER DASHBOARD MODAL -->
+<div id="dashboard-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Pending Applications</h2>
+      <button class="modal-close" onclick="closeDashboard()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="applications-list">
+        <p style="color:var(--text-secondary)">Loading...</p>
       </div>
     </div>
   </div>
@@ -335,53 +400,53 @@
       </button>
     </div>
     <div class="modal-body">
-  <div class="form-group">
-    <label for="input-link">Link <span class="required">*</span></label>
-    <div style="display: flex; gap: 8px; align-items: center;">
-      <input type="url" id="input-link" placeholder="https://..." required style="flex: 1;"/>
-      <button id="btn-summarize" type="button" class="btn-secondary" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 5px;">
-        <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
-        AI
-      </button>
+      <div class="form-group">
+        <label for="input-link">Link <span class="required">*</span></label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="url" id="input-link" placeholder="https://..." required style="flex: 1;"/>
+          <button id="btn-summarize" type="button" class="btn-secondary" style="height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 5px;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
+            AI
+          </button>
+        </div>
+        <small id="summarize-status" style="color: var(--accent); display: none; margin-top: 4px; font-weight: 600;">✨ Summarizing...</small>
+      </div>
+      <div class="form-group">
+        <label for="input-title">Title</label>
+        <input type="text" id="input-title" placeholder="e.g. Python Full Course"/>
+      </div>
+      <div class="form-group">
+        <label for="input-description">Description <span class="optional">optional</span></label>
+        <textarea id="input-description" placeholder="Short description..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="input-department">Domain</label>
+          <select id="input-department">
+            <option value="CS">Computer Science</option>
+            <option value="ECE">Electronics</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="input-type">Type</label>
+          <select id="input-type">
+            <option value="Video">Video</option>
+            <option value="Playlist">Playlist</option>
+            <option value="Website">Website</option>
+            <option value="Github Repo">GitHub Repo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="tag-input">Tags <span class="optional">optional — press Enter or comma to add</span></label>
+        <div class="tag-input-wrap" id="tag-input-wrap">
+          <div class="tag-selected" id="tag-selected"></div>
+          <input type="text" id="tag-input" placeholder="e.g. python, machine learning..." autocomplete="off"/>
+        </div>
+        <div class="tag-presets" id="tag-presets"></div>
+      </div>
     </div>
-    <small id="summarize-status" style="color: var(--accent); display: none; margin-top: 4px; font-weight: 600;">✨ Summarizing...</small>
-  </div>
-  <div class="form-group">
-    <label for="input-title">Title</label>
-    <input type="text" id="input-title" placeholder="e.g. Python Full Course"/>
-  </div>
-  <div class="form-group">
-    <label for="input-description">Description <span class="optional">optional</span></label>
-    <textarea id="input-description" placeholder="Short description..."></textarea>
-  </div>
-  <div class="form-row">
-    <div class="form-group">
-      <label for="input-department">Domain</label>
-      <select id="input-department">
-        <option value="CS">Computer Science</option>
-        <option value="ECE">Electronics</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="input-type">Type</label>
-      <select id="input-type">
-        <option value="Video">Video</option>
-        <option value="Playlist">Playlist</option>
-        <option value="Website">Website</option>
-        <option value="Github Repo">GitHub Repo</option>
-      </select>
-    </div>
-  </div>
-  <div class="form-group">
-    <label for="tag-input">Tags <span class="optional">optional — press Enter or comma to add</span></label>
-    <div class="tag-input-wrap" id="tag-input-wrap">
-      <div class="tag-selected" id="tag-selected"></div>
-      <input type="text" id="tag-input" placeholder="e.g. python, machine learning..." autocomplete="off"/>
-    </div>
-    <div class="tag-presets" id="tag-presets"></div>
-  </div>
-</div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
       <button class="btn-primary" id="btn-save">Save Resource</button>
