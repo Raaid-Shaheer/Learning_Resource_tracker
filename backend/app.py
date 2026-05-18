@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from google import genai  
 import json
 
-from fastapi import FastAPI, Depends, HTTPException, Body
+from fastapi import FastAPI, Depends, HTTPException, Body, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -18,12 +18,11 @@ from fastapi.responses import FileResponse
 from backend import models, schemas
 from backend.database import engine, get_db
 from backend.models import Base, Domain, ResourceType,ResourceStatus,User, UserRole,ApplicationStatus, ContributorApplication
-from backend.auth import hash_password, verify_password, create_access_token
 from backend.schemas import UserCreate, UserOut, Token, ApplicationCreate, ApplicationOut, ApplicationCreated
-from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
-from backend.auth import hash_password, verify_password, create_access_token, decode_access_token
+from fastapi.security import OAuth2PasswordRequestForm
+from backend.auth import hash_password, verify_password, create_access_token, decode_access_token, set_auth_cookie
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
 
 # 1. Load .env and initialize Gemini
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -150,12 +149,13 @@ Return ONLY raw JSON. No markdown, no backticks, no explanation.
         print(f"Error with primary model: {e}")
         return {"title": "", "summary": "Error generating summary."}
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
-    token_data = decode_access_token(token)
-    if token_data is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+def get_current_user(access_token: str = Cookie(default=None), db: Session = Depends(get_db)) -> models.User:
 
-    user = db.query(models.User).filter(models.User.id == token_data.user_id).first()
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Not Authenticated")
+
+    payload = decode_access_token(access_token)
+    user = db.query(models.User).filter(models.User.id == payload.user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -207,15 +207,23 @@ def get_my_statuses(
     
     return {str(row.resource_id): row.status for row in rows}
 
-@app.post("/auth/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.username == form_data.username).first()
+@app.post("/auth/login")
+def login(credentials: OAuth2PasswordRequestForm = Depends(), response:Response = None, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.username == credentials.username).first()
     if not existing_user:
         raise HTTPException(status_code=401, detail="No such username found")
-    if not verify_password(form_data.password, existing_user.password_hash):
+    if not verify_password(credentials.password, existing_user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect password")
+    
     token = create_access_token({"user_id": existing_user.id, "role": existing_user.role.value})
-    return Token(access_token=token, token_type="bearer")
+    
+    set_auth_cookie(response, token)
+    return {"message": "Logged in", "role": existing_user.role.value, "username": existing_user.username}
+
+@app.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"message": "Logged out"}
 
 @app.post("/auth/apply", response_model=ApplicationCreated)
 def apply_to_contribute(
@@ -430,7 +438,6 @@ def get_resource_status(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # TODO: query UserResourceStatus for this user + resource pairing
     existing = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id,models.UserResourceStatus.resource_id== id).first()
 
     if not existing:

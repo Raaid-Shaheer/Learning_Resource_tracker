@@ -4,6 +4,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from backend.schemas import TokenData
 from dotenv import load_dotenv
+from fastapi import Response
 load_dotenv()
 
 # --- Config ---
@@ -28,6 +29,15 @@ def verify_password(plain: str, hashed: str) -> bool:
     verified = pwd_context.verify(plain,hashed)
     return verified
 
+def set_auth_cookie(response: Response, token: str):
+    response.set_cookie(
+        key="access_token",
+        value= token,
+        httponly= True,
+        secure= False, # set to true in production
+        samesite="lax",
+        max_age=86400,
+    )
 
 def create_access_token(data: dict) -> str:
     # 1. Copy data so you don't mutate the original

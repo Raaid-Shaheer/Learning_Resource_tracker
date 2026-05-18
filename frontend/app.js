@@ -18,21 +18,12 @@ let currentType = null;
 // ============================================================
 // AUTH STATE
 // ============================================================
-let authToken    = null;
 let currentUser  = null;
 
 // ============================================================
 // AUTH HELPERS
 // ============================================================
-function authedFetch(url, options = {}) {
-    if (authToken) {
-        options.headers = {
-            ...options.headers,
-            "Authorization": `Bearer ${authToken}`
-        };
-    }
-    return fetch(url, options);
-}
+
 
 function openLoginModal() {
     document.getElementById("login-modal").classList.remove("hidden");
@@ -110,16 +101,14 @@ async function submitLogin() {
 
     const body = new URLSearchParams({ username, password });
     try {
-        const res  = await fetch("/auth/login", { method: "POST", body });
+        const res  = await fetch("/auth/login", { method: "POST", body,credentials: "include" });
         const data = await res.json();
         if (!res.ok) {
             errorEl.textContent = data.detail || "Login failed";
             errorEl.style.display = "block";
             return;
         }
-        authToken   = data.access_token;
-        const me    = await authedFetch("/auth/me");
-        currentUser = await me.json();
+        currentUser = { username: data.username, role: data.role };
         closeLoginModal();
         updateNavAuth();
     } catch (err) {
@@ -128,8 +117,8 @@ async function submitLogin() {
     }
 }
 
-function logout() {
-    authToken   = null;
+async function logout() {
+    await fetch("/auth/logout", { method: "POST", credentials: "include" });
     currentUser = null;
     updateNavAuth();
 }
@@ -195,8 +184,9 @@ async function submitApply() {
     }
 
     try {
-        const res  = await authedFetch("/auth/apply", {
+        const res  = await fetch("/auth/apply", {
             method:  "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({ message })
         });
@@ -228,7 +218,7 @@ async function openDashboard() {
     listEl.innerHTML = `<p style="color:var(--text-secondary)">Loading...</p>`;
 
     try {
-        const res  = await authedFetch("/auth/applications");
+        const res  = await fetch("/auth/applications",{credentials: "include"});
         const apps = await res.json();
 
         if (!res.ok) {
@@ -269,7 +259,7 @@ async function approveApplication(id, btn) {
     btn.disabled = true;
     btn.textContent = "Approving...";
     try {
-        const res = await authedFetch(`/auth/applications/${id}/approve`, { method: "PUT" });
+        const res = await fetch(`/auth/applications/${id}/approve`, { method: "PUT",credentials: "include" });
         if (res.ok) {
             btn.closest("div[style]").innerHTML = `<span style="color:var(--success,#16a34a);font-weight:600;">✅ Approved</span>`;
         } else {
@@ -286,7 +276,7 @@ async function rejectApplication(id, btn) {
     btn.disabled = true;
     btn.textContent = "Rejecting...";
     try {
-        const res = await authedFetch(`/auth/applications/${id}/reject`, { method: "PUT" });
+        const res = await fetch(`/auth/applications/${id}/reject`, { method: "PUT",credentials: "include" });
         if (res.ok) {
             btn.closest("div[style]").innerHTML = `<span style="color:var(--danger,#e53e3e);font-weight:600;">❌ Rejected</span>`;
         } else {
@@ -489,8 +479,9 @@ function buildStatusDropdown(resourceId, userStatus, onSelect) {
 // BUILD RESOURCE ITEM
 // ============================================================
 async function updateStatus(resourceId, newStatus) {
-    const response = await authedFetch(`${API_URL}/resources/${resourceId}/status`, {
+    const response = await fetch(`${API_URL}/resources/${resourceId}/status`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus })
     });
@@ -789,11 +780,10 @@ async function loadDeptTypeResources(dept, type, chipEl) {
     ]);
 
     let statusMap = {};
-    if (authToken) {
-        const statusRes = await authedFetch(`${API_URL}/auth/me/statuses`, { method: "GET" });
+   if (currentUser) {
+        const statusRes = await fetch(`/auth/me/statuses`, { credentials: "include" });
         statusMap = await statusRes.json();
     }
-
     try {
         const response  = await fetch(`${API_URL}/resources?domain=${dept}&resource_type=${encodeURIComponent(type)}`);
         const resources = await response.json();
@@ -839,9 +829,9 @@ async function loadAllResources() {
     if (status) params.append("status", status);
 
     let statusMap = {};
-    if (authToken) {
-        const response = await authedFetch(`${API_URL}/auth/me/statuses`, { method: "GET" });
-        statusMap = await response.json();
+    if (currentUser) {
+        const statusRes = await fetch(`/auth/me/statuses`, { credentials: "include" });
+        statusMap = await statusRes.json();
     }
 
     try {
@@ -944,7 +934,7 @@ function initTagInput() {
 // MODAL — ADD
 // ============================================================
 function openAddModal() {
-    if (!authToken) {
+    if (!currentUser) {
         openLoginModal();
         return;
     }
@@ -1033,8 +1023,9 @@ async function saveResource() {
         : `${API_URL}/resources/${editingId}`;
 
     try {
-        const res = await authedFetch(url, {
+        const res = await fetch(url, {
             method,
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
         });
@@ -1062,7 +1053,7 @@ async function saveResource() {
 // ============================================================
 async function deleteResource() {
     try {
-        await authedFetch(`${API_URL}/resources/${deletingId}`, { method: "DELETE" });
+        await fetch(`${API_URL}/resources/${deletingId}`, { method: "DELETE",credentials: "include" });
         closeConfirmModal();
         refreshCurrentPage();
     } catch (err) {
@@ -1218,3 +1209,21 @@ document.getElementById("dashboard-modal").addEventListener("click", function(e)
 // ============================================================
 loadAllTags();
 navigate("home");
+
+// ── restore session from cookie ──
+async function restoreSession() {
+    try {
+        const res = await fetch("/auth/me", { credentials: "include" });
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = { username: data.username, role: data.role };
+            updateNavAuth();
+        }
+    } catch (err) {
+        // no session — stay logged out
+    }
+     // ── clear any browser autofill on search inputs ──
+    const globalSearch = document.getElementById("global-search");
+    if (globalSearch) globalSearch.value = "";
+}
+restoreSession();
