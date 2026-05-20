@@ -231,6 +231,16 @@ def apply_to_contribute(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    existing = db.query(models.ContributorApplication).filter(
+    models.ContributorApplication.user_id == current_user.id,
+    models.ContributorApplication.status.in_([ 
+        models.ApplicationStatus.PENDING,
+        models.ApplicationStatus.APPROVED])
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=409, detail="User already has an active application")
+
     new_application = models.ContributorApplication(
         user_id = current_user.id,
         message = body.message
@@ -275,6 +285,7 @@ def approve_application(
         models.User.id == application.user_id
     ).first()
     applicant_user.role = models.UserRole.contributor
+    application.username = applicant_user.username
 
     db.commit()
     db.refresh(application)
@@ -295,6 +306,9 @@ def reject_application(
         raise HTTPException(status_code=404, detail=f"Application {id} not found")
 
     application.status = models.ApplicationStatus.REJECTED
+
+    user = db.query(models.User).filter(models.User.id == application.user_id).first()
+    application.username = user.username if user else "Unknown"
 
     db.commit()
     db.refresh(application)

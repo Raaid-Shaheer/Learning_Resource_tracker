@@ -762,6 +762,14 @@ async function loadDeptPage(dept) {
 
         document.getElementById("dept-resources-section").style.display = "none";
 
+        if (currentType) {
+            const activeChip = [...catGrid.querySelectorAll(".cat-chip")].find(c => c.classList.contains("active"));
+            // re-click the active chip if one exists
+            // OR just call loadDeptTypeResources directly:
+            loadDeptTypeResources(dept, currentType,catGrid.querySelectorAll(".cat-chip")[types.indexOf(currentType)]
+                );
+            }
+
     } catch (err) {
         console.error("Failed to load dept page:", err);
     }
