@@ -15,6 +15,7 @@ dependencies = [
     "flask-cors>=6.0.2",
     "google-genai>=1.73.1",
     "google-generativeai>=0.8.6",
+    "libsql-client>=0.3.1",
     "passlib[bcrypt]>=1.7.4",
     "pydantic>=2.12.5",
     "pymysql>=1.1.2",

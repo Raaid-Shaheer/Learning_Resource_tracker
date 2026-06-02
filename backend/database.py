@@ -5,23 +5,26 @@ import os
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/skillforge.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
+TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
 
 if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
-
-if DATABASE_URL.startswith("sqlite"):
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+elif TURSO_URL:
+    db_url = TURSO_URL.replace("libsql://", "sqlite+libsql://")
     engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
+        db_url,
+        connect_args={"authToken": TURSO_TOKEN, "check_same_thread": False}
     )
 else:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_engine(
+        "sqlite:///./skillforge.db",
+        connect_args={"check_same_thread": False}
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 def get_db():
