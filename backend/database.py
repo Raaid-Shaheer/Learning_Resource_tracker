@@ -5,26 +5,16 @@ import os
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
-TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./skillforge.db")
 
 if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-elif TURSO_URL:
-    import libsql_experimental as libsql
-    engine = create_engine(
-        "sqlite+libsql:///",
-        creator=lambda: libsql.connect(
-            database=TURSO_URL,
-            auth_token=TURSO_TOKEN
-        ),
-        connect_args={"check_same_thread": False}
-    )
+elif DATABASE_URL.startswith("postgresql://"):
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     engine = create_engine(
-        "sqlite:///./skillforge.db",
+        DATABASE_URL,
         connect_args={"check_same_thread": False}
     )
 
