@@ -11,6 +11,8 @@ if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
 
 if DATABASE_URL.startswith("sqlite"):
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     engine = create_engine(
         DATABASE_URL,
         connect_args={"check_same_thread": False}
