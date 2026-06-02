@@ -13,10 +13,14 @@ if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 elif TURSO_URL:
-    db_url = TURSO_URL.replace("libsql://", "sqlite+libsql://")
+    import libsql_experimental as libsql
     engine = create_engine(
-        db_url,
-        connect_args={"authToken": TURSO_TOKEN, "check_same_thread": False}
+        "sqlite+libsql:///",
+        creator=lambda: libsql.connect(
+            database=TURSO_URL,
+            auth_token=TURSO_TOKEN
+        ),
+        connect_args={"check_same_thread": False}
     )
 else:
     engine = create_engine(
