@@ -75,33 +75,32 @@ def extract_youtube_transcript(url: str) -> str:
     if not video_id_match:
         return ""
     video_id = video_id_match.group(1)
-    
+
     # Try transcript first
     try:
         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'en-GB'])
         return " ".join([item['text'] for item in transcript])
     except Exception:
-        print(f"No transcript for {video_id}, falling back to meta scrape")
+        print(f"No transcript for {video_id}, falling back to og: meta scrape")
 
-    # Fallback: scrape meta tags + paragraph text from the page
+    # Fallback: og: meta tags — served server-side by YouTube for all IPs
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        parts = []
+        title = ""
+        description = ""
 
-        # Meta tags — YouTube puts title & description here even in raw HTML
-        for tag in soup.find_all("meta"):
-            name    = tag.get("name", "") or tag.get("property", "")
-            content = tag.get("content", "")
-            if content and any(k in name for k in ["title", "description", "keywords"]):
-                parts.append(content)
+        og_title = soup.find("meta", property="og:title")
+        og_desc  = soup.find("meta", property="og:description")
 
-        # Any visible paragraph text
-        parts += [p.get_text() for p in soup.find_all("p")]
+        if og_title:
+            title = og_title.get("content", "")
+        if og_desc:
+            description = og_desc.get("content", "")
 
-        return " ".join(parts)[:10000]
+        return f"{title} {description}"
     except Exception as e:
         print(f"YouTube meta scrape failed: {e}")
         return ""
@@ -141,7 +140,6 @@ Return ONLY raw JSON. No markdown, no backticks, no explanation.
 """
         )
         raw = response.text.strip()
-        # Safety net: slice from first { to last } in case Gemini adds any fluff
         start = raw.index("{")
         end   = raw.rindex("}") + 1
         return json.loads(raw[start:end])
@@ -150,11 +148,11 @@ Return ONLY raw JSON. No markdown, no backticks, no explanation.
         return {"title": "", "summary": "Error generating summary."}
 
 def get_current_user(access_token: str = Cookie(default=None), db: Session = Depends(get_db)) -> models.User:
-
     if not access_token:
         raise HTTPException(status_code=401, detail="Not Authenticated")
-
     payload = decode_access_token(access_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     user = db.query(models.User).filter(models.User.id == payload.user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -175,7 +173,6 @@ async def serve_index():
 
 @app.post("/auth/register", response_model=UserOut, status_code=201)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-
     existing_user = db.query(models.User).filter(models.User.username == user.username).first()
     if existing_user:
         raise HTTPException(status_code=409, detail="Username already exists")
@@ -185,9 +182,9 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     hashed_password = hash_password(plain=user.password)
     new_user = models.User(
         username=user.username,
-        email = user.email,
-        password_hash = hashed_password
-        )
+        email=user.email,
+        password_hash=hashed_password
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -202,21 +199,19 @@ def get_my_statuses(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-   
-    rows = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id).all()
-    
+    rows = db.query(models.UserResourceStatus).filter(
+        models.UserResourceStatus.user_id == current_user.id
+    ).all()
     return {str(row.resource_id): row.status for row in rows}
 
 @app.post("/auth/login")
-def login(credentials: OAuth2PasswordRequestForm = Depends(), response:Response = None, db: Session = Depends(get_db)):
+def login(credentials: OAuth2PasswordRequestForm = Depends(), response: Response = None, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.username == credentials.username).first()
     if not existing_user:
         raise HTTPException(status_code=401, detail="No such username found")
     if not verify_password(credentials.password, existing_user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect password")
-    
     token = create_access_token({"user_id": existing_user.id, "role": existing_user.role.value})
-    
     set_auth_cookie(response, token)
     return {"message": "Logged in", "role": existing_user.role.value, "username": existing_user.username}
 
@@ -232,18 +227,17 @@ def apply_to_contribute(
     current_user: models.User = Depends(get_current_user)
 ):
     existing = db.query(models.ContributorApplication).filter(
-    models.ContributorApplication.user_id == current_user.id,
-    models.ContributorApplication.status.in_([ 
-        models.ApplicationStatus.PENDING,
-        models.ApplicationStatus.APPROVED])
+        models.ContributorApplication.user_id == current_user.id,
+        models.ContributorApplication.status.in_([
+            models.ApplicationStatus.PENDING,
+            models.ApplicationStatus.APPROVED
+        ])
     ).first()
-
     if existing:
         raise HTTPException(status_code=409, detail="User already has an active application")
-
     new_application = models.ContributorApplication(
-        user_id = current_user.id,
-        message = body.message
+        user_id=current_user.id,
+        message=body.message
     )
     db.add(new_application)
     db.commit()
@@ -256,14 +250,11 @@ def list_applications(
     current_user: models.User = Depends(require_role(models.UserRole.owner))
 ):
     applications = db.query(models.ContributorApplication).filter(
-        models.ContributorApplication.status == models.ApplicationStatus.PENDING 
+        models.ContributorApplication.status == models.ApplicationStatus.PENDING
     ).all()
-
     for app in applications:
-        user = db.query(models.User).filter(
-            models.User.id == app.user_id 
-        ).first()
-        app.username = user.username  if user else "Unknown"
+        user = db.query(models.User).filter(models.User.id == app.user_id).first()
+        app.username = user.username if user else "Unknown"
     return applications
 
 @app.put("/auth/applications/{id}/approve", response_model=ApplicationOut)
@@ -272,26 +263,20 @@ def approve_application(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(models.UserRole.owner))
 ):
-    
     application = db.query(models.ContributorApplication).filter(
-    models.ContributorApplication.id == id).first()
-
+        models.ContributorApplication.id == id
+    ).first()
     if not application:
         raise HTTPException(status_code=404, detail=f"Application {id} not found")
-
     application.status = models.ApplicationStatus.APPROVED
-
     applicant_user = db.query(models.User).filter(
         models.User.id == application.user_id
     ).first()
     applicant_user.role = models.UserRole.contributor
     application.username = applicant_user.username
-
     db.commit()
     db.refresh(application)
     return application
-
-
 
 @app.put("/auth/applications/{id}/reject", response_model=ApplicationOut)
 def reject_application(
@@ -300,45 +285,37 @@ def reject_application(
     current_user: models.User = Depends(require_role(models.UserRole.owner))
 ):
     application = db.query(models.ContributorApplication).filter(
-    models.ContributorApplication.id == id).first()
-
+        models.ContributorApplication.id == id
+    ).first()
     if not application:
         raise HTTPException(status_code=404, detail=f"Application {id} not found")
-
     application.status = models.ApplicationStatus.REJECTED
-
     user = db.query(models.User).filter(models.User.id == application.user_id).first()
     application.username = user.username if user else "Unknown"
-
     db.commit()
     db.refresh(application)
     return application
-
-
-
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
     url = req.url
     if not url:
         raise HTTPException(status_code=400, detail="No URL provided")
-
     if "youtube.com" in url or "youtu.be" in url:
         content = extract_youtube_transcript(url)
     elif "github.com" in url:
         content = extract_github_readme(url)
     else:
         content = extract_website_text(url)
-
-    result = generate_summary(content)    # now a dict
-    return {"success": True, **result}    # sends: {success, title, summary}
+    result = generate_summary(content)
+    return {"success": True, **result}
 
 @app.get("/tags", response_model=list[schemas.Tag])
 def get_tags(db: Session = Depends(get_db)):
     return db.query(models.Tag).order_by(models.Tag.name).all()
 
 @app.post("/tags", response_model=schemas.Tag)
-def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
     existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
     if existing:
         return existing
@@ -349,12 +326,10 @@ def create_tag(tag: schemas.TagCreate, db: Session = Depends(get_db),current_use
     return new_tag
 
 @app.post("/resources/", response_model=schemas.Resource)
-def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
-    
+def create_resource(resource: schemas.ResourceCreate, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(UserRole.owner, UserRole.contributor))):
     existing = db.query(models.Resource).filter(models.Resource.link == resource.link).first()
     if existing:
         raise HTTPException(status_code=409, detail="A resource with this link already exists.")
-    
     db_resource = models.Resource(
         title=resource.title,
         link=resource.link,
@@ -402,8 +377,7 @@ def get_resource(resource_id: int, db: Session = Depends(get_db)):
     return resource
 
 @app.put("/resources/{resource_id}", response_model=schemas.Resource)
-def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Session = Depends(get_db),current_user: models.User =  Depends(require_role(UserRole.owner))):
-
+def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(UserRole.owner))):
     resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
@@ -416,7 +390,7 @@ def update_resource(resource_id: int, updated: schemas.ResourceUpdate, db: Sessi
     return resource
 
 @app.delete("/resources/{resource_id}")
-def delete_resource(resource_id: int, db: Session = Depends(get_db),current_user: models.User = Depends(require_role(UserRole.owner))):
+def delete_resource(resource_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(UserRole.owner))):
     resource = db.query(models.Resource).filter(models.Resource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
@@ -431,18 +405,19 @@ def set_resource_status(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    existing = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id,models.UserResourceStatus.resource_id== id).first()
-
+    existing = db.query(models.UserResourceStatus).filter(
+        models.UserResourceStatus.user_id == current_user.id,
+        models.UserResourceStatus.resource_id == id
+    ).first()
     if existing:
         existing.status = body.status
     else:
         new_status = models.UserResourceStatus(
-            user_id = current_user.id,
-            resource_id = id,
-            status = body.status
+            user_id=current_user.id,
+            resource_id=id,
+            status=body.status
         )
         db.add(new_status)
-
     db.commit()
     return {"message": "Status updated"}
 
@@ -452,11 +427,12 @@ def get_resource_status(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    existing = db.query(models.UserResourceStatus).filter(models.UserResourceStatus.user_id == current_user.id,models.UserResourceStatus.resource_id== id).first()
-
+    existing = db.query(models.UserResourceStatus).filter(
+        models.UserResourceStatus.user_id == current_user.id,
+        models.UserResourceStatus.resource_id == id
+    ).first()
     if not existing:
         return {"status": models.ResourceStatus.NOT_STARTED}
-
     return {"status": existing.status}
 
 # ── Helpers ───────────────────────────────────────────────────
