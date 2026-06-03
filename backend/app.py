@@ -83,22 +83,22 @@ def extract_youtube_transcript(url: str) -> str:
     except Exception:
         print(f"No transcript for {video_id}, falling back to og: meta scrape")
 
-    # Fallback: og: meta tags — served server-side by YouTube for all IPs
+    # Fallback: og: meta tags
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=10)
+        print(f"YouTube response status: {response.status_code}")
+        print(f"YouTube response preview: {response.text[:500]}")
         soup = BeautifulSoup(response.content, 'html.parser')
-
-        title = ""
-        description = ""
 
         og_title = soup.find("meta", property="og:title")
         og_desc  = soup.find("meta", property="og:description")
 
-        if og_title:
-            title = og_title.get("content", "")
-        if og_desc:
-            description = og_desc.get("content", "")
+        title = og_title.get("content", "") if og_title else ""
+        description = og_desc.get("content", "") if og_desc else ""
+
+        print(f"og:title = {title}")
+        print(f"og:desc = {description}")
 
         return f"{title} {description}"
     except Exception as e:
