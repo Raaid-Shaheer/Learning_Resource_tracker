@@ -81,28 +81,19 @@ def extract_youtube_transcript(url: str) -> str:
         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'en-GB'])
         return " ".join([item['text'] for item in transcript])
     except Exception:
-        print(f"No transcript for {video_id}, falling back to og: meta scrape")
+        print(f"No transcript for {video_id}, trying yt-dlp")
 
-    # Fallback: og: meta tags
+    # Fallback: yt-dlp metadata
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        print(f"YouTube response status: {response.status_code}")
-        print(f"YouTube response preview: {response.text[:500]}")
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        og_title = soup.find("meta", property="og:title")
-        og_desc  = soup.find("meta", property="og:description")
-
-        title = og_title.get("content", "") if og_title else ""
-        description = og_desc.get("content", "") if og_desc else ""
-
-        print(f"og:title = {title}")
-        print(f"og:desc = {description}")
-
+        import yt_dlp
+        ydl_opts = {'skip_download': True, 'quiet': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            title = info.get('title', '')
+            description = info.get('description', '')
         return f"{title} {description}"
     except Exception as e:
-        print(f"YouTube meta scrape failed: {e}")
+        print(f"yt-dlp fallback failed: {e}")
         return ""
 
 def extract_github_readme(url: str) -> str:
@@ -112,10 +103,15 @@ def extract_github_readme(url: str) -> str:
     username, repo = match.groups()
     try:
         api_url = f"https://api.github.com/repos/{username}/{repo}/readme"
-        res = requests.get(api_url)
+        res = requests.get(api_url, headers={'User-Agent': 'skillforge-app'}, timeout=10)
+        print(f"GitHub API status: {res.status_code}")
+        if not res.ok:
+            print(f"GitHub API error: {res.text[:200]}")
+            return ""
         content_b64 = res.json()['content']
         return base64.b64decode(content_b64).decode('utf-8')
-    except Exception:
+    except Exception as e:
+        print(f"GitHub readme fetch failed: {e}")
         return ""
 
 # ── AI Logic ──────────────────────────────────────────────────
