@@ -85,15 +85,19 @@ def extract_youtube_transcript(url: str) -> str:
 
     # Fallback: yt-dlp metadata
     try:
-        import yt_dlp
-        ydl_opts = {'skip_download': True, 'quiet': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            title = info.get('title', '')
-            description = info.get('description', '')
-        return f"{title} {description}"
+        oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
+        res = requests.get(oembed_url, timeout=10)
+        if res.ok:
+            data = res.json()
+            title = data.get("title", "")
+            author = data.get("author_name", "")
+            print(f"oEmbed title: {title}")
+            return f"{title} by {author}"
+        else:
+            print(f"oEmbed failed: {res.status_code}")
+            return ""
     except Exception as e:
-        print(f"yt-dlp fallback failed: {e}")
+        print(f"oEmbed fallback failed: {e}")
         return ""
 
 def extract_github_readme(url: str) -> str:
