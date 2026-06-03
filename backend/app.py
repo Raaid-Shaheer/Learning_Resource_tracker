@@ -102,11 +102,13 @@ def extract_github_readme(url: str) -> str:
         return ""
     username, repo = match.groups()
     try:
+        github_token = os.getenv("GITHUB_TOKEN", "")
+        headers = {'User-Agent': 'skillforge-app'}
+        if github_token:
+            headers['Authorization'] = f'token {github_token}'
         api_url = f"https://api.github.com/repos/{username}/{repo}/readme"
-        res = requests.get(api_url, headers={'User-Agent': 'skillforge-app'}, timeout=10)
-        print(f"GitHub API status: {res.status_code}")
+        res = requests.get(api_url, headers=headers, timeout=10)
         if not res.ok:
-            print(f"GitHub API error: {res.text[:200]}")
             return ""
         content_b64 = res.json()['content']
         return base64.b64decode(content_b64).decode('utf-8')
