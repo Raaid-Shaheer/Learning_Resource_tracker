@@ -4,6 +4,8 @@ A personal learning resource tracker that helps you organise, discover, and mana
 
 ![SkillForge Dashboard](https://img.shields.io/badge/status-live-brightgreen) ![Python](https://img.shields.io/badge/python-3.12-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-teal) ![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)
 
+🌐 **Live at: [https://skillforge-bf69.onrender.com](https://skillforge-bf69.onrender.com)**
+
 ---
 
 ## Screenshots
@@ -64,7 +66,7 @@ A personal learning resource tracker that helps you organise, discover, and mana
 | AI | Google Gemini API (`gemini-3-flash-preview`) |
 | Auth | JWT (python-jose) + bcrypt (passlib) |
 | Package manager | `uv` |
-| Deployment | Railway |
+| Deployment | Render |
 
 ---
 
@@ -170,16 +172,16 @@ Full interactive docs available at `/docs` when running locally.
 - **bcrypt** must stay pinned to `4.0.1` — newer versions break `passlib`
 - **Static files** are mounted at `/static` and must be last in `app.py`
 - **JWT** is stored in a JS variable — it clears on page refresh by design (no localStorage)
-- **Railway deployment**: MySQL enum columns use UPPERCASE values (`NOT_STARTED`, `VIDEO`, etc.) — do not change enum string values without a matching `ALTER TABLE` migration
+- **Render deployment**: MySQL enum columns use UPPERCASE values (`NOT_STARTED`, `VIDEO`, etc.) — do not change enum string values without a matching `ALTER TABLE` migration
 
 ---
 
 ## Roadmap
 
--  Per-user progress tracking (junction table replacing global status)
+- Per-user progress tracking (junction table replacing global status)
 - Contributor application flow with owner approval
--  Persistent login via httpOnly cookie
--  Tag filter on Domain page
+- Persistent login via httpOnly cookie
+- Tag filter on Domain page
 - Favorites / bookmarks
 - Skill tree visualisation
 - Alembic migrations

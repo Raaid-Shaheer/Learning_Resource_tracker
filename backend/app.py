@@ -83,7 +83,7 @@ def extract_youtube_transcript(url: str) -> str:
     except Exception:
         print(f"No transcript for {video_id}, trying yt-dlp")
 
-    # Fallback: yt-dlp metadata
+    # Fallback: 
     try:
         oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
         res = requests.get(oembed_url, timeout=10)
