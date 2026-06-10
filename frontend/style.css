@@ -212,8 +212,8 @@ body {
 .sidebar-link .material-symbols-outlined { font-size: 20px; }
 .sidebar-link:hover { background: rgba(255,255,255,0.8); color: var(--text-primary); }
 .sidebar-link.active {
-  background: var(--accent-light);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-light);
   border-color: rgba(37,99,235,0.15);
   box-shadow: var(--neu-shadow-sm);
 }
