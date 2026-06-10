@@ -14,7 +14,7 @@ A personal learning resource tracker that helps you organise, discover, and mana
 ![Dashboard](docs/Home_no_login.png)
 
 ### Resource Cards
-![Resource Cards](docs/categories.png)
+![Resource Cards](docs/Categories.png)
 
 ### Login
 ![Login](docs/login.png)
