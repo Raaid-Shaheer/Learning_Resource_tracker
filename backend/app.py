@@ -355,7 +355,6 @@ def get_resources(
     tag: str | None = None,
     status: ResourceStatus | None = None,
     skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Resource)
@@ -369,7 +368,7 @@ def get_resources(
         query = query.filter(models.Resource.status == status)
     if tag:
         query = query.filter(models.Resource.tags.any(models.Tag.name == tag))
-    return query.offset(skip).limit(limit).all()
+    return query.all()
 
 @app.get("/resources/{resource_id}", response_model=schemas.Resource)
 def get_resource(resource_id: int, db: Session = Depends(get_db)):
